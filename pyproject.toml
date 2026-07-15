@@ -1,0 +1,13 @@
+[project]
+name = "vidz-grab-fast"
+version = "1.0.0"
+description = "Minimal provenance-preserving video acquisition module for VIDZ."
+requires-python = ">=3.11"
+dependencies = [
+  "PySide6>=6.7",
+  "yt-dlp>=2025.6.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
