@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QPixmap
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -25,33 +25,9 @@ LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
 
 
 class IndustrialPanel(QFrame):
-    local_file_dropped = Signal(object)
-    url_dropped = Signal(str)
-
     def __init__(self) -> None:
         super().__init__()
-        self.setAcceptDrops(True)
         self.setObjectName("panel")
-
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        mime = event.mimeData()
-        if mime.hasUrls() or mime.hasText():
-            event.acceptProposedAction()
-
-    def dropEvent(self, event: QDropEvent) -> None:
-        mime = event.mimeData()
-        if mime.hasUrls():
-            first = mime.urls()[0]
-            if first.isLocalFile():
-                self.local_file_dropped.emit(Path(first.toLocalFile()))
-            else:
-                self.url_dropped.emit(first.toString())
-            event.acceptProposedAction()
-            return
-        text = mime.text().strip()
-        if text:
-            self.url_dropped.emit(text)
-            event.acceptProposedAction()
 
 
 class GrabWorker(QObject):
@@ -75,7 +51,6 @@ class GrabWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.local_file: Path | None = None
         self.thread: QThread | None = None
         self.worker: GrabWorker | None = None
         self.setWindowTitle("VIDZ GRAB FAST")
@@ -96,14 +71,12 @@ class MainWindow(QMainWindow):
         shell.setSpacing(18)
 
         self.panel = IndustrialPanel()
-        self.panel.local_file_dropped.connect(self._set_local_file)
-        self.panel.url_dropped.connect(self._set_url)
         self.panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(78, 58, 78, 52)
-        layout.setSpacing(22)
+        layout.setContentsMargins(78, 58, 78, 50)
+        layout.setSpacing(24)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -137,7 +110,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(form)
 
         self.url_input = self._line("URL")
-        self.artist_input = self._line("ARTIST / ACCOUNT")
+        self.artist_input = self._line("ARTIST NAME")
         self.output_input = self._line("OUTPUT FOLDER")
         self.output_input.setReadOnly(True)
         choose = QPushButton("Choose Folder")
@@ -146,7 +119,7 @@ class MainWindow(QMainWindow):
 
         form.addWidget(self._field_label("URL"), 0, 0)
         form.addWidget(self.url_input, 1, 0, 1, 2)
-        form.addWidget(self._field_label("ARTIST / ACCOUNT"), 2, 0)
+        form.addWidget(self._field_label("ARTIST NAME"), 2, 0)
         form.addWidget(self.artist_input, 3, 0, 1, 2)
         form.addWidget(self._field_label("OUTPUT FOLDER"), 4, 0)
         form.addWidget(self.output_input, 5, 0)
@@ -157,7 +130,7 @@ class MainWindow(QMainWindow):
         self.grab_button.clicked.connect(self._start_grab)
         layout.addWidget(self.grab_button)
 
-        self.footer = QLabel("DROP VIDEO OR LINK ANYWHERE")
+        self.footer = QLabel("URL + ARTIST + OUTPUT")
         self.footer.setObjectName("footer")
         self.footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.footer)
@@ -315,18 +288,6 @@ class MainWindow(QMainWindow):
             self.output_input.setText(folder)
             self._set_status("READY")
 
-    def _set_local_file(self, path: Path) -> None:
-        self.local_file = path
-        self.url_input.clear()
-        self._set_status(path.name.upper())
-        self.footer.setText("LOCAL VIDEO READY")
-
-    def _set_url(self, url: str) -> None:
-        self.local_file = None
-        self.url_input.setText(url.strip())
-        self._set_status("LINK READY")
-        self.footer.setText("LINK READY")
-
     def _set_status(self, text: str) -> None:
         self.status.setText((text or "READY").upper())
 
@@ -336,14 +297,13 @@ class MainWindow(QMainWindow):
             self._set_status("NO FOLDER")
             return
         source_url = self.url_input.text().strip()
-        if not self.local_file and not source_url:
+        if not source_url:
             self._set_status("NO SOURCE")
             return
 
         request = GrabRequest(
             output_dir=Path(output).expanduser(),
             artist_account=self.artist_input.text().strip(),
-            local_file=self.local_file,
             source_url=source_url,
         )
         self.grab_button.setEnabled(False)
@@ -369,7 +329,6 @@ class MainWindow(QMainWindow):
 
     def _on_finished(self, video_path: Path, source_path: Path) -> None:
         self.grab_button.setEnabled(True)
-        self.local_file = None
         self._set_status("DONE")
         self.footer.setText(f"{video_path.name} + {source_path.name}")
         self.status.setToolTip(f"{video_path.name}\n{source_path.name}")

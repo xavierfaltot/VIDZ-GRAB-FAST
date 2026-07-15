@@ -2,7 +2,7 @@
 
 Acquire only.
 
-VIDZ GRAB FAST downloads or imports one video and writes exactly two finished files into the chosen destination folder:
+VIDZ GRAB FAST downloads one video from a pasted URL and writes exactly two finished files into the chosen destination folder:
 
 ```text
 clean_name.mp4
@@ -21,7 +21,7 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
-Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once.
+Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once. The desktop UI is intentionally limited to URL, artist name, output folder, and GRAB.
 
 `ffprobe` must be available on `PATH`; it is used only to verify that the acquired file is readable media. Install FFmpeg on macOS with:
 
@@ -30,8 +30,6 @@ brew install ffmpeg
 ```
 
 ## Contract
-
-Local imports copy the original file and never modify it. Because this module must output `.mp4` and must not transcode, local non-MP4 files are rejected.
 
 URL imports use `yt-dlp` with cache disabled and download into a temporary system folder first. Only the final `.mp4` and `.source.json` are moved into the chosen destination.
 
