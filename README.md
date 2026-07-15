@@ -21,6 +21,8 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
+Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once.
+
 `ffprobe` must be available on `PATH`; it is used only to verify that the acquired file is readable media. Install FFmpeg on macOS with:
 
 ```bash
