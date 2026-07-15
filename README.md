@@ -23,6 +23,14 @@ python run.py
 
 Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once. The desktop UI is intentionally limited to URL, artist name, output folder, and GRAB.
 
+To create or refresh the macOS desktop app:
+
+```bash
+./scripts/create_desktop_app.command
+```
+
+That creates `~/Desktop/VIDZ GRAB FAST.app`.
+
 `ffprobe` must be available on `PATH`; it is used only to verify that the acquired file is readable media. Install FFmpeg on macOS with:
 
 ```bash
