@@ -3,11 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDropEvent, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
     QGridLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -19,26 +20,18 @@ from PySide6.QtWidgets import (
 
 from .grabber import GrabError, GrabRequest, grab
 
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
 
-class DropZone(QFrame):
+
+class IndustrialPanel(QFrame):
     local_file_dropped = Signal(object)
     url_dropped = Signal(str)
 
     def __init__(self) -> None:
         super().__init__()
         self.setAcceptDrops(True)
-        self.setObjectName("dropZone")
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(0)
-        top = QLabel("DROP VIDEO")
-        middle = QLabel("OR")
-        bottom = QLabel("DROP LINK")
-        for label in (top, middle, bottom):
-            label.setAlignment(Qt.AlignCenter)
-            label.setObjectName("dropText")
-            layout.addWidget(label)
-        middle.setObjectName("dropOr")
+        self.setObjectName("panel")
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         mime = event.mimeData()
@@ -86,8 +79,10 @@ class MainWindow(QMainWindow):
         self.thread: QThread | None = None
         self.worker: GrabWorker | None = None
         self.setWindowTitle("VIDZ GRAB FAST")
-        self.setMinimumSize(420, 640)
-        self.resize(480, 720)
+        if LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(LOGO_PATH)))
+        self.setMinimumSize(820, 820)
+        self.resize(900, 900)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -100,28 +95,45 @@ class MainWindow(QMainWindow):
         shell.setContentsMargins(28, 28, 28, 28)
         shell.setSpacing(18)
 
-        panel = QFrame()
-        panel.setObjectName("panel")
-        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        shell.addWidget(panel, alignment=Qt.AlignCenter)
+        self.panel = IndustrialPanel()
+        self.panel.local_file_dropped.connect(self._set_local_file)
+        self.panel.url_dropped.connect(self._set_url)
+        self.panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(26, 26, 26, 22)
-        layout.setSpacing(16)
+        layout = QVBoxLayout(self.panel)
+        layout.setContentsMargins(78, 58, 78, 52)
+        layout.setSpacing(22)
 
-        title = QLabel("VIDZ\nGRAB\nFAST")
-        title.setObjectName("title")
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(12)
+        self.unit_label = QLabel("VGF-01")
+        self.unit_label.setObjectName("unitLabel")
+        header.addWidget(self.unit_label)
+        header.addStretch(1)
+        self.status_led = QLabel("")
+        self.status_led.setObjectName("statusLed")
+        self.status_led.setFixedSize(12, 12)
+        header.addWidget(self.status_led)
+        self.status = QLabel("READY")
+        self.status.setObjectName("status")
+        header.addWidget(self.status)
+        layout.addLayout(header)
 
-        self.drop_zone = DropZone()
-        self.drop_zone.local_file_dropped.connect(self._set_local_file)
-        self.drop_zone.url_dropped.connect(self._set_url)
-        layout.addWidget(self.drop_zone)
+        self.logo = QLabel("VIDZ\nGRAB\nFAST")
+        self.logo.setObjectName("logo")
+        self.logo.setAlignment(Qt.AlignCenter)
+        if LOGO_PATH.exists():
+            pixmap = QPixmap(str(LOGO_PATH))
+            self.logo.setPixmap(
+                pixmap.scaled(320, 320, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
+        layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
         form = QGridLayout()
-        form.setHorizontalSpacing(10)
-        form.setVerticalSpacing(10)
+        form.setHorizontalSpacing(22)
+        form.setVerticalSpacing(13)
         layout.addLayout(form)
 
         self.url_input = self._line("URL")
@@ -129,13 +141,14 @@ class MainWindow(QMainWindow):
         self.output_input = self._line("OUTPUT FOLDER")
         self.output_input.setReadOnly(True)
         choose = QPushButton("Choose Folder")
+        choose.setObjectName("chooseButton")
         choose.clicked.connect(self._choose_folder)
 
-        form.addWidget(QLabel("URL"), 0, 0)
+        form.addWidget(self._field_label("URL"), 0, 0)
         form.addWidget(self.url_input, 1, 0, 1, 2)
-        form.addWidget(QLabel("ARTIST / ACCOUNT"), 2, 0)
+        form.addWidget(self._field_label("ARTIST / ACCOUNT"), 2, 0)
         form.addWidget(self.artist_input, 3, 0, 1, 2)
-        form.addWidget(QLabel("OUTPUT FOLDER"), 4, 0)
+        form.addWidget(self._field_label("OUTPUT FOLDER"), 4, 0)
         form.addWidget(self.output_input, 5, 0)
         form.addWidget(choose, 5, 1)
 
@@ -144,96 +157,153 @@ class MainWindow(QMainWindow):
         self.grab_button.clicked.connect(self._start_grab)
         layout.addWidget(self.grab_button)
 
-        self.status = QLabel("READY")
-        self.status.setObjectName("status")
-        self.status.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.status)
+        self.footer = QLabel("DROP VIDEO OR LINK ANYWHERE")
+        self.footer.setObjectName("footer")
+        self.footer.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.footer)
+
+        for screw_name in ("screwTL", "screwTR", "screwBL", "screwBR"):
+            screw = QLabel("+", self.panel)
+            screw.setObjectName(screw_name)
+            screw.setAlignment(Qt.AlignCenter)
+            screw.setFixedSize(34, 34)
 
     def _line(self, placeholder: str) -> QLineEdit:
         line = QLineEdit()
         line.setPlaceholderText(placeholder)
         return line
 
+    def _field_label(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("fieldLabel")
+        return label
+
+    def resizeEvent(self, event) -> None:  # noqa: ANN001
+        super().resizeEvent(event)
+        if not hasattr(self, "panel"):
+            return
+        margin = 20
+        positions = {
+            "screwTL": (margin, margin),
+            "screwTR": (self.panel.width() - margin - 34, margin),
+            "screwBL": (margin, self.panel.height() - margin - 34),
+            "screwBR": (self.panel.width() - margin - 34, self.panel.height() - margin - 34),
+        }
+        for name, (x_pos, y_pos) in positions.items():
+            screw = self.panel.findChild(QLabel, name)
+            if screw:
+                screw.move(x_pos, y_pos)
+
     def _apply_style(self) -> None:
         self.setStyleSheet(
             """
             * {
-                font-family: "Arial", "Helvetica", sans-serif;
-                letter-spacing: 0px;
+                font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif;
             }
             #root {
                 background: #050505;
             }
             #panel {
-                min-width: 360px;
-                max-width: 430px;
-                border: 2px solid #4b463d;
-                border-radius: 6px;
-                background: #10100e;
+                min-width: 720px;
+                max-width: 850px;
+                min-height: 720px;
+                max-height: 850px;
+                border: 4px solid #35312b;
+                border-radius: 18px;
+                background: #11110f;
             }
-            #title {
-                color: #d8d0c0;
-                font-size: 46px;
-                font-weight: 900;
-                line-height: 0.88;
+            #panel::disabled {
+                background: #11110f;
             }
             QLabel {
-                color: #8d8578;
-                font-size: 10px;
+                color: #9d9688;
+                font-size: 13px;
                 font-weight: 800;
             }
-            #dropZone {
-                min-height: 168px;
-                border: 2px solid #5b554a;
-                border-radius: 4px;
-                background: #161614;
-            }
-            #dropText {
-                color: #d8d0c0;
-                font-size: 24px;
+            #unitLabel {
+                color: #c53831;
+                font-family: "Courier New", monospace;
+                font-size: 22px;
                 font-weight: 900;
             }
-            #dropOr {
-                color: #777064;
-                font-size: 12px;
+            #status {
+                color: #aaa195;
+                font-size: 18px;
+                font-weight: 900;
+            }
+            #statusLed {
+                border-radius: 6px;
+                background: #c1372e;
+            }
+            #logo {
+                min-height: 310px;
+                color: #d8d0c0;
+                font-size: 48px;
+                font-weight: 900;
+            }
+            #fieldLabel {
+                color: #9f988d;
+                font-size: 18px;
                 font-weight: 900;
             }
             QLineEdit {
-                min-height: 34px;
-                padding: 0 10px;
+                min-height: 38px;
+                padding: 0 14px;
                 color: #e7dfcf;
                 background: #050505;
-                border: 1px solid #5b554a;
-                border-radius: 3px;
-                font-size: 13px;
+                border: 2px solid #302d27;
+                border-radius: 7px;
+                font-family: "Courier New", monospace;
+                font-size: 16px;
                 font-weight: 700;
             }
+            QLineEdit:focus {
+                border: 2px solid #8d2a24;
+            }
             QPushButton {
-                min-height: 34px;
+                min-height: 38px;
                 color: #e7dfcf;
-                background: #24231f;
-                border: 1px solid #5b554a;
-                border-radius: 3px;
-                font-size: 11px;
+                background: #181716;
+                border: 2px solid #343029;
+                border-radius: 6px;
+                font-size: 16px;
                 font-weight: 900;
             }
             QPushButton:hover {
-                background: #302e28;
+                background: #24211d;
             }
             QPushButton:disabled {
                 color: #686157;
                 background: #151513;
             }
-            #grabButton {
-                min-height: 62px;
-                color: #080808;
-                background: #d8d0c0;
-                border: 0;
-                font-size: 26px;
+            #chooseButton {
+                min-width: 170px;
             }
-            #status {
-                color: #e74a3f;
-                font-size: 13px;
+            #grabButton {
+                min-height: 96px;
+                margin-top: 14px;
+                color: #070707;
+                background: #9e2e27;
+                border: 2px solid #5c1b17;
+                border-radius: 8px;
+                font-size: 48px;
+                font-weight: 900;
+            }
+            #grabButton:hover {
+                background: #b83830;
+            }
+            #footer {
+                color: #5d5750;
+                font-family: "Courier New", monospace;
+                font-size: 11px;
+                font-weight: 900;
+            }
+            #screwTL, #screwTR, #screwBL, #screwBR {
+                color: #070707;
+                background: #2c2a26;
+                border: 3px solid #090909;
+                border-radius: 17px;
+                font-size: 22px;
                 font-weight: 900;
             }
             """
@@ -249,11 +319,13 @@ class MainWindow(QMainWindow):
         self.local_file = path
         self.url_input.clear()
         self._set_status(path.name.upper())
+        self.footer.setText("LOCAL VIDEO READY")
 
     def _set_url(self, url: str) -> None:
         self.local_file = None
         self.url_input.setText(url.strip())
         self._set_status("LINK READY")
+        self.footer.setText("LINK READY")
 
     def _set_status(self, text: str) -> None:
         self.status.setText((text or "READY").upper())
@@ -276,6 +348,7 @@ class MainWindow(QMainWindow):
         )
         self.grab_button.setEnabled(False)
         self._set_status("GRAB 0%")
+        self.footer.setText("ACQUIRING")
 
         self.thread = QThread()
         self.worker = GrabWorker(request)
@@ -298,11 +371,13 @@ class MainWindow(QMainWindow):
         self.grab_button.setEnabled(True)
         self.local_file = None
         self._set_status("DONE")
+        self.footer.setText(f"{video_path.name} + {source_path.name}")
         self.status.setToolTip(f"{video_path.name}\n{source_path.name}")
 
     def _on_failed(self, message: str) -> None:
         self.grab_button.setEnabled(True)
         self._set_status("ERROR")
+        self.footer.setText(message.upper()[:80])
         self.status.setToolTip(message)
 
     def _clear_worker(self) -> None:
