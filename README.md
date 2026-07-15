@@ -2,7 +2,7 @@
 
 Acquire only.
 
-VIDZ GRAB FAST downloads one video from a pasted URL and writes exactly two finished files into the chosen destination folder:
+VIDZ GRAB FAST downloads videos from pasted URLs and writes exactly two finished files per video into the chosen destination folder:
 
 ```text
 clean_name.mp4
@@ -21,7 +21,9 @@ python -m pip install -r requirements.txt
 python run.py
 ```
 
-Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once. The desktop UI is intentionally limited to URL, artist name, output folder, and GRAB.
+Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once. The desktop UI is intentionally limited to URLS, artist name, output folder, and GRAB.
+
+Paste one URL per line. The app accepts up to 150 URLs in one run. Pressing Enter inside URLS adds a new line; only the GRAB button starts acquisition.
 
 To create or refresh the macOS desktop app:
 

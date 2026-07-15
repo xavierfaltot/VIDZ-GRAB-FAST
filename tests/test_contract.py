@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
+
+from PySide6.QtWidgets import QApplication
 
 from vidz_grab_fast.filenames import clean_filename_stem
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
+from vidz_grab_fast.ui import MainWindow
 
 
 def test_clean_filename_is_ascii_lowercase_snake_case() -> None:
@@ -51,3 +55,15 @@ def test_source_json_contract(tmp_path) -> None:
     ]
     assert source_path.name == "fredagain_youtube_boiler_room.source.json"
     assert data["grab_version"] == "1.0"
+
+
+def test_ui_collects_multiline_urls(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = MainWindow()
+    window.url_input.setPlainText(
+        "https://example.com/a.mp4\n\nhttps://example.com/b.mp4\nhttps://example.com/a.mp4"
+    )
+    assert window._urls() == ["https://example.com/a.mp4", "https://example.com/b.mp4"]
+    window.close()
+    assert app is not None

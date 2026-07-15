@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSizePolicy,
+    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -32,20 +33,37 @@ class IndustrialPanel(QFrame):
 
 class GrabWorker(QObject):
     progress = Signal(str, int)
-    finished = Signal(object, object)
+    finished = Signal(int, int)
     failed = Signal(str)
 
-    def __init__(self, request: GrabRequest) -> None:
+    def __init__(self, output_dir: Path, artist_account: str, urls: list[str]) -> None:
         super().__init__()
-        self.request = request
+        self.output_dir = output_dir
+        self.artist_account = artist_account
+        self.urls = urls
 
     def run(self) -> None:
-        try:
-            result = grab(self.request, self.progress.emit)
-        except (GrabError, OSError, RuntimeError) as exc:
-            self.failed.emit(str(exc))
-            return
-        self.finished.emit(result.video_path, result.source_path)
+        errors: list[str] = []
+        total = len(self.urls)
+        for index, url in enumerate(self.urls, start=1):
+            request = GrabRequest(
+                output_dir=self.output_dir,
+                artist_account=self.artist_account,
+                source_url=url,
+            )
+
+            def item_progress(message: str, percent: int) -> None:
+                done_share = ((index - 1) / total) * 100
+                item_share = percent / total
+                self.progress.emit(f"{message} {index}/{total}", int(done_share + item_share))
+
+            try:
+                grab(request, item_progress)
+            except (GrabError, OSError, RuntimeError) as exc:
+                errors.append(f"{index}: {exc}")
+                self.progress.emit(f"SKIP {index}/{total}", int((index / total) * 100))
+
+        self.finished.emit(total - len(errors), len(errors))
 
 
 class MainWindow(QMainWindow):
@@ -76,7 +94,7 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout(self.panel)
         layout.setContentsMargins(78, 58, 78, 50)
-        layout.setSpacing(24)
+        layout.setSpacing(20)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -100,16 +118,19 @@ class MainWindow(QMainWindow):
         if LOGO_PATH.exists():
             pixmap = QPixmap(str(LOGO_PATH))
             self.logo.setPixmap(
-                pixmap.scaled(320, 320, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.scaled(285, 285, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
+        layout.addSpacing(14)
 
         form = QGridLayout()
         form.setHorizontalSpacing(22)
         form.setVerticalSpacing(13)
         layout.addLayout(form)
 
-        self.url_input = self._line("URL")
+        self.url_input = QTextEdit()
+        self.url_input.setObjectName("urlInput")
+        self.url_input.setPlaceholderText("URLS")
         self.artist_input = self._line("ARTIST NAME")
         self.output_input = self._line("OUTPUT FOLDER")
         self.output_input.setReadOnly(True)
@@ -117,7 +138,7 @@ class MainWindow(QMainWindow):
         choose.setObjectName("chooseButton")
         choose.clicked.connect(self._choose_folder)
 
-        form.addWidget(self._field_label("URL"), 0, 0)
+        form.addWidget(self._field_label("URLS"), 0, 0)
         form.addWidget(self.url_input, 1, 0, 1, 2)
         form.addWidget(self._field_label("ARTIST NAME"), 2, 0)
         form.addWidget(self.artist_input, 3, 0, 1, 2)
@@ -127,10 +148,12 @@ class MainWindow(QMainWindow):
 
         self.grab_button = QPushButton("GRAB")
         self.grab_button.setObjectName("grabButton")
+        self.grab_button.setAutoDefault(False)
+        self.grab_button.setDefault(False)
         self.grab_button.clicked.connect(self._start_grab)
         layout.addWidget(self.grab_button)
 
-        self.footer = QLabel("URL + ARTIST + OUTPUT")
+        self.footer = QLabel("URLS + ARTIST + OUTPUT")
         self.footer.setObjectName("footer")
         self.footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.footer)
@@ -209,7 +232,7 @@ class MainWindow(QMainWindow):
                 background: #c1372e;
             }
             #logo {
-                min-height: 310px;
+                min-height: 286px;
                 color: #d8d0c0;
                 font-size: 48px;
                 font-weight: 900;
@@ -219,7 +242,7 @@ class MainWindow(QMainWindow):
                 font-size: 18px;
                 font-weight: 900;
             }
-            QLineEdit {
+            QLineEdit, QTextEdit {
                 min-height: 38px;
                 padding: 0 14px;
                 color: #e7dfcf;
@@ -230,7 +253,12 @@ class MainWindow(QMainWindow):
                 font-size: 16px;
                 font-weight: 700;
             }
-            QLineEdit:focus {
+            #urlInput {
+                min-height: 126px;
+                max-height: 150px;
+                padding: 10px 14px;
+            }
+            QLineEdit:focus, QTextEdit:focus {
                 border: 2px solid #8d2a24;
             }
             QPushButton {
@@ -296,22 +324,25 @@ class MainWindow(QMainWindow):
         if not output:
             self._set_status("NO FOLDER")
             return
-        source_url = self.url_input.text().strip()
-        if not source_url:
+        urls = self._urls()
+        if not urls:
             self._set_status("NO SOURCE")
             return
+        if len(urls) > 150:
+            self._set_status("150 MAX")
+            self.footer.setText(f"{len(urls)} URLS")
+            return
 
-        request = GrabRequest(
-            output_dir=Path(output).expanduser(),
-            artist_account=self.artist_input.text().strip(),
-            source_url=source_url,
-        )
         self.grab_button.setEnabled(False)
         self._set_status("GRAB 0%")
-        self.footer.setText("ACQUIRING")
+        self.footer.setText(f"ACQUIRING {len(urls)} URLS")
 
         self.thread = QThread()
-        self.worker = GrabWorker(request)
+        self.worker = GrabWorker(
+            output_dir=Path(output).expanduser(),
+            artist_account=self.artist_input.text().strip(),
+            urls=urls,
+        )
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._on_progress)
@@ -327,11 +358,14 @@ class MainWindow(QMainWindow):
     def _on_progress(self, message: str, percent: int) -> None:
         self._set_status(f"{message} {percent}%")
 
-    def _on_finished(self, video_path: Path, source_path: Path) -> None:
+    def _on_finished(self, success_count: int, error_count: int) -> None:
         self.grab_button.setEnabled(True)
-        self._set_status("DONE")
-        self.footer.setText(f"{video_path.name} + {source_path.name}")
-        self.status.setToolTip(f"{video_path.name}\n{source_path.name}")
+        if error_count:
+            self._set_status("DONE ERR")
+            self.footer.setText(f"{success_count} OK / {error_count} ERR")
+        else:
+            self._set_status("DONE")
+            self.footer.setText(f"{success_count} OK")
 
     def _on_failed(self, message: str) -> None:
         self.grab_button.setEnabled(True)
@@ -342,3 +376,14 @@ class MainWindow(QMainWindow):
     def _clear_worker(self) -> None:
         self.worker = None
         self.thread = None
+
+    def _urls(self) -> list[str]:
+        urls: list[str] = []
+        seen: set[str] = set()
+        for line in self.url_input.toPlainText().splitlines():
+            url = line.strip()
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            urls.append(url)
+        return urls
