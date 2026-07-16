@@ -7,14 +7,13 @@ from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
+    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -93,8 +92,8 @@ class MainWindow(QMainWindow):
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(78, 58, 78, 50)
-        layout.setSpacing(20)
+        layout.setContentsMargins(78, 50, 78, 40)
+        layout.setSpacing(14)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -118,33 +117,43 @@ class MainWindow(QMainWindow):
         if LOGO_PATH.exists():
             pixmap = QPixmap(str(LOGO_PATH))
             self.logo.setPixmap(
-                pixmap.scaled(285, 285, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.scaled(220, 220, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
-        layout.addSpacing(14)
+        layout.addSpacing(22)
 
-        form = QGridLayout()
-        form.setHorizontalSpacing(22)
-        form.setVerticalSpacing(13)
+        form = QVBoxLayout()
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setSpacing(10)
         layout.addLayout(form)
 
-        self.url_input = QTextEdit()
+        self.url_input = QPlainTextEdit()
         self.url_input.setObjectName("urlInput")
-        self.url_input.setPlaceholderText("URLS")
+        self.url_input.setTabChangesFocus(True)
+        self.url_input.document().setDocumentMargin(10)
+        self.url_input.setFixedHeight(106)
         self.artist_input = self._line("ARTIST NAME")
         self.output_input = self._line("OUTPUT FOLDER")
         self.output_input.setReadOnly(True)
         choose = QPushButton("Choose Folder")
         choose.setObjectName("chooseButton")
+        choose.setFixedHeight(42)
         choose.clicked.connect(self._choose_folder)
 
-        form.addWidget(self._field_label("URLS"), 0, 0)
-        form.addWidget(self.url_input, 1, 0, 1, 2)
-        form.addWidget(self._field_label("ARTIST NAME"), 2, 0)
-        form.addWidget(self.artist_input, 3, 0, 1, 2)
-        form.addWidget(self._field_label("OUTPUT FOLDER"), 4, 0)
-        form.addWidget(self.output_input, 5, 0)
-        form.addWidget(choose, 5, 1)
+        form.addWidget(self._field_label("URLS"))
+        form.addWidget(self.url_input)
+        form.addSpacing(8)
+        form.addWidget(self._field_label("ARTIST NAME"))
+        form.addWidget(self.artist_input)
+        form.addSpacing(8)
+        form.addWidget(self._field_label("OUTPUT FOLDER"))
+
+        output_row = QHBoxLayout()
+        output_row.setContentsMargins(0, 0, 0, 0)
+        output_row.setSpacing(22)
+        output_row.addWidget(self.output_input, 1)
+        output_row.addWidget(choose)
+        form.addLayout(output_row)
 
         self.grab_button = QPushButton("GRAB")
         self.grab_button.setObjectName("grabButton")
@@ -166,7 +175,9 @@ class MainWindow(QMainWindow):
 
     def _line(self, placeholder: str) -> QLineEdit:
         line = QLineEdit()
-        line.setPlaceholderText(placeholder)
+        line.setPlaceholderText("")
+        line.setAccessibleName(placeholder)
+        line.setFixedHeight(42)
         return line
 
     def _field_label(self, text: str) -> QLabel:
@@ -232,7 +243,7 @@ class MainWindow(QMainWindow):
                 background: #c1372e;
             }
             #logo {
-                min-height: 286px;
+                min-height: 220px;
                 color: #d8d0c0;
                 font-size: 48px;
                 font-weight: 900;
@@ -242,9 +253,8 @@ class MainWindow(QMainWindow):
                 font-size: 18px;
                 font-weight: 900;
             }
-            QLineEdit, QTextEdit {
+            QLineEdit, QPlainTextEdit {
                 min-height: 38px;
-                padding: 0 14px;
                 color: #e7dfcf;
                 background: #050505;
                 border: 2px solid #302d27;
@@ -254,11 +264,10 @@ class MainWindow(QMainWindow):
                 font-weight: 700;
             }
             #urlInput {
-                min-height: 126px;
-                max-height: 150px;
-                padding: 10px 14px;
+                min-height: 106px;
+                max-height: 106px;
             }
-            QLineEdit:focus, QTextEdit:focus {
+            QLineEdit:focus, QPlainTextEdit:focus {
                 border: 2px solid #8d2a24;
             }
             QPushButton {
@@ -281,7 +290,7 @@ class MainWindow(QMainWindow):
                 min-width: 170px;
             }
             #grabButton {
-                min-height: 96px;
+                min-height: 82px;
                 margin-top: 14px;
                 color: #070707;
                 background: #9e2e27;
