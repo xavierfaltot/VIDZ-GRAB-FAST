@@ -189,7 +189,7 @@ def test_unavailable_error_detection() -> None:
 
 
 def test_worker_counts_unavailable_video_as_failed_skip(monkeypatch, tmp_path) -> None:
-    finished: list[tuple[int, int, int, int, list[str]]] = []
+    finished: list[tuple[int, int, int, int, list[str], list[str]]] = []
 
     def fake_expand(url: str, max_items: int) -> list[str]:
         return [
@@ -212,15 +212,17 @@ def test_worker_counts_unavailable_video_as_failed_skip(monkeypatch, tmp_path) -
         urls=["https://youtube.com/playlist?list=PL123"],
     )
     worker.finished.connect(
-        lambda ok, err, skip, failed_skip, errors: finished.append((ok, err, skip, failed_skip, errors))
+        lambda ok, err, skip, failed_skip, errors, failed_errors: finished.append(
+            (ok, err, skip, failed_skip, errors, failed_errors)
+        )
     )
     worker.run()
 
-    assert finished == [(2, 0, 0, 1, [])]
+    assert finished == [(2, 0, 0, 1, [], ["2: Video unavailable"])]
 
 
 def test_worker_skips_any_failed_video_from_playlist(monkeypatch, tmp_path) -> None:
-    finished: list[tuple[int, int, int, int, list[str]]] = []
+    finished: list[tuple[int, int, int, int, list[str], list[str]]] = []
 
     def fake_expand(url: str, max_items: int) -> list[str]:
         return [
@@ -243,15 +245,17 @@ def test_worker_skips_any_failed_video_from_playlist(monkeypatch, tmp_path) -> N
         urls=["https://youtube.com/playlist?list=PL123"],
     )
     worker.finished.connect(
-        lambda ok, err, skip, failed_skip, errors: finished.append((ok, err, skip, failed_skip, errors))
+        lambda ok, err, skip, failed_skip, errors, failed_errors: finished.append(
+            (ok, err, skip, failed_skip, errors, failed_errors)
+        )
     )
     worker.run()
 
-    assert finished == [(2, 0, 0, 1, [])]
+    assert finished == [(2, 0, 0, 1, [], ["2: HTTP Error 500"])]
 
 
 def test_worker_keeps_direct_video_failure_as_error(monkeypatch, tmp_path) -> None:
-    finished: list[tuple[int, int, int, int, list[str]]] = []
+    finished: list[tuple[int, int, int, int, list[str], list[str]]] = []
 
     def fake_expand(url: str, max_items: int) -> list[str]:
         return [url]
@@ -268,11 +272,13 @@ def test_worker_keeps_direct_video_failure_as_error(monkeypatch, tmp_path) -> No
         urls=["https://www.youtube.com/watch?v=broken"],
     )
     worker.finished.connect(
-        lambda ok, err, skip, failed_skip, errors: finished.append((ok, err, skip, failed_skip, errors))
+        lambda ok, err, skip, failed_skip, errors, failed_errors: finished.append(
+            (ok, err, skip, failed_skip, errors, failed_errors)
+        )
     )
     worker.run()
 
-    assert finished == [(0, 1, 0, 0, ["1: HTTP Error 500"])]
+    assert finished == [(0, 1, 0, 0, ["1: HTTP Error 500"], [])]
 
 
 def test_finished_with_only_failed_playlist_skips_is_error(monkeypatch) -> None:
@@ -280,10 +286,24 @@ def test_finished_with_only_failed_playlist_skips_is_error(monkeypatch) -> None:
     app = QApplication.instance() or QApplication(sys.argv)
     window = MainWindow()
 
-    window._on_finished(0, 0, 0, 3, [])
+    window._on_finished(0, 0, 0, 3, [], [])
 
     assert window.status.text() == "ERROR"
     assert window.footer.text() == "0 OK / 3 FAILED SKIP"
+
+    window.close()
+    assert app is not None
+
+
+def test_finished_with_only_failed_playlist_skips_shows_first_error(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = MainWindow()
+
+    window._on_finished(0, 0, 0, 88, [], ["1: Sign in to confirm you are not a bot"])
+
+    assert window.status.text() == "ERROR"
+    assert window.footer.text() == "1: SIGN IN TO CONFIRM YOU ARE NOT A BOT"
 
     window.close()
     assert app is not None
