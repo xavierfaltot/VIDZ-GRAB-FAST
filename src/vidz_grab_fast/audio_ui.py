@@ -20,7 +20,10 @@ from PySide6.QtWidgets import (
 )
 
 from .audio import AudioError, convert_folder
-from .ui import LOGO_PATH, IndustrialPanel
+from .ui import ASSETS_DIR, IndustrialPanel
+
+AUDIO_LOGO_PATH = ASSETS_DIR / "vidz_turn_sndz_logo.png"
+AUDIO_ICON_PATH = ASSETS_DIR / "vidz_turn_sndz_icon.png"
 
 
 class AudioWorker(QObject):
@@ -47,9 +50,9 @@ class AudioWindow(QMainWindow):
         super().__init__()
         self.thread: QThread | None = None
         self.worker: AudioWorker | None = None
-        self.setWindowTitle("VIDZ AUDIO FAST")
-        if LOGO_PATH.exists():
-            self.setWindowIcon(QIcon(str(LOGO_PATH)))
+        self.setWindowTitle("VIDZ TURN SNDZ")
+        if AUDIO_ICON_PATH.exists():
+            self.setWindowIcon(QIcon(str(AUDIO_ICON_PATH)))
         self.setMinimumSize(720, 620)
         self.resize(800, 680)
         self._build_ui()
@@ -85,12 +88,13 @@ class AudioWindow(QMainWindow):
         header.addWidget(self.status)
         layout.addLayout(header)
 
-        self.logo = QLabel("VIDZ\nAUDIO\nFAST")
+        self.logo = QLabel("VIDZ\nTURN\nSNDZ")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
-        if LOGO_PATH.exists():
-            pixmap = QPixmap(str(LOGO_PATH))
-            self.logo.setPixmap(pixmap.scaled(160, 160, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        self.logo.setFixedSize(260, 205)
+        if AUDIO_LOGO_PATH.exists():
+            pixmap = QPixmap(str(AUDIO_LOGO_PATH))
+            self.logo.setPixmap(pixmap.scaled(260, 205, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
         layout.addSpacing(12)
 
@@ -156,7 +160,7 @@ class AudioWindow(QMainWindow):
             #unitLabel { color: #c53831; font-family: "Courier New", monospace; font-size: 22px; font-weight: 900; }
             #status { color: #aaa195; font-size: 18px; font-weight: 900; }
             #statusLed { border-radius: 6px; background: #c1372e; }
-            #logo { min-height: 160px; color: #d8d0c0; font-size: 42px; font-weight: 900; }
+            #logo { color: #d8d0c0; font-size: 42px; font-weight: 900; }
             #fieldLabel { color: #9f988d; font-size: 18px; font-weight: 900; }
             QLineEdit {
                 color: #e7dfcf;
@@ -255,7 +259,7 @@ class AudioWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("VIDZ AUDIO FAST")
+    app.setApplicationName("VIDZ TURN SNDZ")
     app.setOrganizationName("RUSH OPERATOR")
     window = AudioWindow()
     window.show()

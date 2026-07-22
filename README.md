@@ -46,11 +46,11 @@ brew install ffmpeg
 Direct MP3 download is technically simpler if the only goal is audio. For the VIDZ/RUSH chain, the cleaner production rule is:
 
 ```text
-VIDZ GRAB FAST  -> acquire MP4 master + provenance
-VIDZ AUDIO FAST -> derive MP3 from that MP4
+VIDZ GRAB FAST -> acquire MP4 master + provenance
+VIDZ TURN SNDZ -> derive MP3 from that MP4
 ```
 
-This keeps GRAB impossible to confuse with SCAN, FLTR, PLAY, or any editing tool. GRAB still only acquires video and preserves origin. VIDZ AUDIO FAST is a separate utility that converts a folder of `.mp4` files into:
+This keeps GRAB impossible to confuse with SCAN, FLTR, PLAY, or any editing tool. GRAB still only acquires video and preserves origin. VIDZ TURN SNDZ is a separate utility that converts a folder of `.mp4` files into:
 
 ```text
 clean_name.mp3
@@ -65,7 +65,7 @@ Run the audio companion with:
 python run_audio.py
 ```
 
-Or double-click `VIDZ AUDIO FAST.command`.
+Or double-click `VIDZ TURN SNDZ.command`.
 
 To create or refresh the macOS desktop app:
 
@@ -73,7 +73,7 @@ To create or refresh the macOS desktop app:
 ./scripts/create_audio_desktop_app.command
 ```
 
-That creates `~/Desktop/VIDZ AUDIO FAST.app`.
+That creates `~/Desktop/VIDZ TURN SNDZ.app`.
 
 ## SNDZ PLAY MINI
 

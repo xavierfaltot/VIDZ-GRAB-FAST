@@ -1,12 +1,12 @@
 #!/bin/zsh
 set -e
 
-APP_NAME="VIDZ AUDIO FAST"
+APP_NAME="VIDZ TURN SNDZ"
 REPO_DIR="${0:A:h:h}"
 APP_DIR="$HOME/Desktop/$APP_NAME.app"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$REPO_DIR/src/vidz_grab_fast/assets/vidz_grab_fast_logo.png" "$APP_DIR/Contents/Resources/VIDZ_AUDIO_FAST.png"
+cp "$REPO_DIR/src/vidz_grab_fast/assets/vidz_turn_sndz_icon.png" "$APP_DIR/Contents/Resources/VIDZ_TURN_SNDZ.png"
 
 cat > "$APP_DIR/Contents/MacOS/$APP_NAME" <<SCRIPT
 #!/bin/zsh
@@ -33,9 +33,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
-  <string>VIDZ_AUDIO_FAST.png</string>
+  <string>VIDZ_TURN_SNDZ.png</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rushoperator.vidzaudiofast</string>
+  <string>com.rushoperator.vidzturnsndz</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>

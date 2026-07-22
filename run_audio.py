@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch VIDZ AUDIO FAST from the source checkout."""
+"""Launch VIDZ TURN SNDZ from the source checkout."""
 
 from pathlib import Path
 import sys
