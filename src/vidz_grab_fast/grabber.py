@@ -15,6 +15,21 @@ from .provenance import SourceRecord, utc_download_date, write_source_json
 
 ProgressCallback = Callable[[str, int], None]
 MAX_BATCH_ITEMS = 600
+UNAVAILABLE_AVAILABILITY_VALUES = {
+    "needs_auth",
+    "premium_only",
+    "private",
+    "subscriber_only",
+}
+UNAVAILABLE_ERROR_MARKERS = (
+    "not available",
+    "private video",
+    "removed",
+    "unavailable",
+    "video is private",
+    "video unavailable",
+    "this video is unavailable",
+)
 
 
 class GrabError(RuntimeError):
@@ -60,6 +75,15 @@ def _entry_source_url(entry: dict, parent_url: str) -> str:
     return ""
 
 
+def is_unavailable_entry(entry: dict) -> bool:
+    availability = entry.get("availability")
+    if isinstance(availability, str) and availability.lower() in UNAVAILABLE_AVAILABILITY_VALUES:
+        return True
+
+    title = _safe_info_value(entry, "title").lower()
+    return title in {"[deleted video]", "[private video]", "deleted video", "private video"}
+
+
 def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[str]:
     entries = info.get("entries")
     if entries is None or isinstance(entries, (str, bytes)):
@@ -70,6 +94,8 @@ def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[
     for entry in entries:
         if not isinstance(entry, dict):
             continue
+        if is_unavailable_entry(entry):
+            continue
         source_url = _entry_source_url(entry, parent_url)
         if not source_url or source_url in seen:
             continue
@@ -78,6 +104,11 @@ def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[
         if len(urls) >= max_items:
             break
     return urls or [parent_url]
+
+
+def is_unavailable_error(error: Exception | str) -> bool:
+    text = str(error).lower()
+    return any(marker in text for marker in UNAVAILABLE_ERROR_MARKERS)
 
 
 def is_playlist_url(source_url: str) -> bool:

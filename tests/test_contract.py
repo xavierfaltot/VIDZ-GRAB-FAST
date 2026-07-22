@@ -6,7 +6,14 @@ import sys
 from PySide6.QtWidgets import QApplication, QLineEdit, QListWidget
 
 from vidz_grab_fast.filenames import clean_filename_stem
-from vidz_grab_fast.grabber import MAX_BATCH_ITEMS, GrabError, _source_urls_from_info, existing_source_urls, is_playlist_url
+from vidz_grab_fast.grabber import (
+    MAX_BATCH_ITEMS,
+    GrabError,
+    _source_urls_from_info,
+    existing_source_urls,
+    is_unavailable_error,
+    is_playlist_url,
+)
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
@@ -95,6 +102,20 @@ def test_playlist_info_expands_to_video_urls() -> None:
     ]
 
 
+def test_playlist_info_skips_unavailable_entries() -> None:
+    info = {
+        "entries": [
+            {"id": "private111", "title": "[Private video]"},
+            {"id": "ok222", "title": "Available"},
+            {"id": "deleted333", "availability": "private"},
+        ]
+    }
+
+    assert _source_urls_from_info(info, "https://www.youtube.com/playlist?list=PL123", 150) == [
+        "https://www.youtube.com/watch?v=ok222",
+    ]
+
+
 def test_playlist_expansion_respects_limit() -> None:
     info = {"entries": [{"id": "one"}, {"id": "two"}, {"id": "three"}]}
     assert _source_urls_from_info(info, "https://www.youtube.com/playlist?list=PL123", 2) == [
@@ -118,6 +139,41 @@ def test_playlist_url_detection() -> None:
     assert is_playlist_url("https://youtube.com/playlist?list=PL123")
     assert is_playlist_url("https://www.youtube.com/watch?v=abc&list=PL123")
     assert not is_playlist_url("https://www.youtube.com/watch?v=abc")
+
+
+def test_unavailable_error_detection() -> None:
+    assert is_unavailable_error("Video unavailable")
+    assert is_unavailable_error("This video is private")
+    assert not is_unavailable_error("HTTP Error 500")
+
+
+def test_worker_counts_unavailable_video_as_skip(monkeypatch, tmp_path) -> None:
+    finished: list[tuple[int, int, int, list[str]]] = []
+
+    def fake_expand(url: str, max_items: int) -> list[str]:
+        return [
+            "https://www.youtube.com/watch?v=ok",
+            "https://www.youtube.com/watch?v=private",
+            "https://www.youtube.com/watch?v=ok2",
+        ]
+
+    def fake_grab(request, progress):  # noqa: ANN001
+        if request.source_url.endswith("private"):
+            raise GrabError("Video unavailable")
+        progress("DONE", 100)
+
+    monkeypatch.setattr("vidz_grab_fast.ui.expand_source_url", fake_expand)
+    monkeypatch.setattr("vidz_grab_fast.ui.grab", fake_grab)
+
+    worker = GrabWorker(
+        output_dir=tmp_path,
+        artist_account="",
+        urls=["https://youtube.com/playlist?list=PL123"],
+    )
+    worker.finished.connect(lambda ok, err, skip, errors: finished.append((ok, err, skip, errors)))
+    worker.run()
+
+    assert finished == [(2, 0, 1, [])]
 
 
 def test_playlist_expansion_failure_does_not_download_playlist_url(monkeypatch, tmp_path) -> None:

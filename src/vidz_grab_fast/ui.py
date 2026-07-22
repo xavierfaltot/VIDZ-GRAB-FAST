@@ -25,6 +25,7 @@ from .grabber import (
     existing_source_urls,
     expand_source_url,
     grab,
+    is_unavailable_error,
     is_playlist_url,
 )
 
@@ -88,6 +89,7 @@ class GrabWorker(QObject):
                 self.failed.emit("No URL provided")
             return
 
+        success_count = 0
         total = len(urls)
         for index, url in enumerate(urls, start=1):
             request = GrabRequest(
@@ -103,11 +105,15 @@ class GrabWorker(QObject):
 
             try:
                 grab(request, item_progress)
+                success_count += 1
             except (GrabError, OSError, RuntimeError) as exc:
-                errors.append(f"{index}: {exc}")
+                if is_unavailable_error(exc):
+                    skipped_count += 1
+                else:
+                    errors.append(f"{index}: {exc}")
                 self.progress.emit(f"SKIP {index}/{total}", int((index / total) * 100))
 
-        self.finished.emit(total - len(errors), len(errors), skipped_count, errors)
+        self.finished.emit(success_count, len(errors), skipped_count, errors)
 
 
 class MainWindow(QMainWindow):
