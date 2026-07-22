@@ -77,7 +77,7 @@ That creates `~/Desktop/VIDZ AUDIO FAST.app`.
 
 ## SNDZ PLAY LITE
 
-SNDZ PLAY LITE is the light playback companion for audio folders. Choose a sound folder, press `BPM`, then press `PLAY`. The app analyzes local audio tempo and plays the list from lowest BPM to highest BPM, so the energy climbs.
+SNDZ PLAY LITE is the light playback companion for audio folders. Click the logo, choose a sound folder, then the app analyzes local audio tempo immediately. Press `PLAY` to play the list from lowest BPM to highest BPM, so the energy climbs.
 
 Supported inputs:
 
@@ -85,7 +85,7 @@ Supported inputs:
 mp3, wav, flac, aiff, aac, m4a, mp4
 ```
 
-This is a lite player: BPM analysis, sorted queue, `NEXT`, and automatic intro crossfade when the next track has a usable music intro. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
+This is a tiny lite player: logo folder pick, automatic BPM analysis, sorted queue, `PLAY`, `NXT`, `STOP`, and automatic intro crossfade when the next track has a usable music intro. The only visible text in the player is the current track title. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
 
 Run it with:
 

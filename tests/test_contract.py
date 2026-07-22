@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLineEdit, QListWidget
 
 from vidz_grab_fast.filenames import clean_filename_stem
 from vidz_grab_fast.grabber import MAX_BATCH_ITEMS, _source_urls_from_info, existing_source_urls
@@ -11,6 +11,7 @@ from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
 from vidz_grab_fast.ui import MainWindow
+from sono_play_lite.ui import SonoWindow
 from sono_play_lite.bpm import (
     SonoTrack,
     analyze_folder,
@@ -197,3 +198,18 @@ def test_sono_mixable_intro_energy_gate() -> None:
 
 def test_sono_tool_lookup_returns_none_for_missing_tool() -> None:
     assert find_tool("sndz_missing_tool_for_test") is None
+
+
+def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+
+    assert window.play_button.text() == "PLAY"
+    assert window.next_button.text() == "NXT"
+    assert window.stop_button.text() == "STOP"
+    assert window.findChildren(QLineEdit) == []
+    assert window.findChildren(QListWidget) == []
+
+    window.close()
+    assert app is not None

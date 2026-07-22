@@ -11,8 +11,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
-    QListWidget,
     QMainWindow,
     QPushButton,
     QSizePolicy,
@@ -40,6 +38,15 @@ class IndustrialPanel(QFrame):
         self.setObjectName("panel")
 
 
+class ClickableLogo(QLabel):
+    clicked = Signal()
+
+    def mousePressEvent(self, event) -> None:  # noqa: ANN001
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+
 class AnalysisWorker(QObject):
     progress = Signal(str, int)
     finished = Signal(object, object)
@@ -63,6 +70,7 @@ class SonoWindow(QMainWindow):
         super().__init__()
         self.thread: QThread | None = None
         self.worker: AnalysisWorker | None = None
+        self.folder_path: Path | None = None
         self.tracks: list[SonoTrack] = []
         self.play_index = 0
         self.current_player: QProcess | None = None
@@ -75,8 +83,7 @@ class SonoWindow(QMainWindow):
         self.setWindowTitle("SNDZ PLAY LITE")
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setMinimumSize(800, 780)
-        self.resize(860, 860)
+        self.setFixedSize(340, 390)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -86,90 +93,51 @@ class SonoWindow(QMainWindow):
         root.setObjectName("root")
         self.setCentralWidget(root)
         shell = QVBoxLayout(root)
-        shell.setContentsMargins(28, 28, 28, 28)
-        shell.setSpacing(18)
+        shell.setContentsMargins(12, 12, 12, 12)
+        shell.setSpacing(0)
 
         self.panel = IndustrialPanel()
         self.panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(70, 48, 70, 40)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(12)
 
-        header = QHBoxLayout()
-        self.unit_label = QLabel("SPL-01")
-        self.unit_label.setObjectName("unitLabel")
-        header.addWidget(self.unit_label)
-        header.addStretch(1)
-        self.status_led = QLabel("")
-        self.status_led.setObjectName("statusLed")
-        self.status_led.setFixedSize(12, 12)
-        header.addWidget(self.status_led)
-        self.status = QLabel("READY")
-        self.status.setObjectName("status")
-        header.addWidget(self.status)
-        layout.addLayout(header)
-
-        self.logo = QLabel("SNDZ\nPLAY\nLITE")
+        self.logo = ClickableLogo("SNDZ\nPLAY\nLITE")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
+        self.logo.setCursor(Qt.PointingHandCursor)
+        self.logo.clicked.connect(self._choose_folder)
         if SNDZ_LOGO_PATH.exists():
             pixmap = QPixmap(str(SNDZ_LOGO_PATH))
             self.logo.setPixmap(pixmap.scaled(190, 190, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
-        layout.addSpacing(18)
-
-        layout.addWidget(self._field_label("SOUND FOLDER"))
-        folder_row = QHBoxLayout()
-        folder_row.setSpacing(18)
-        self.folder_input = QLineEdit()
-        self.folder_input.setReadOnly(True)
-        self.folder_input.setFixedHeight(42)
-        self.choose_button = QPushButton("Choose Folder")
-        self.choose_button.clicked.connect(self._choose_folder)
-        folder_row.addWidget(self.folder_input, 1)
-        folder_row.addWidget(self.choose_button)
-        layout.addLayout(folder_row)
-
-        self.track_list = QListWidget()
-        self.track_list.setObjectName("trackList")
-        self.track_list.setMinimumHeight(260)
-        layout.addWidget(self.track_list, 1)
 
         utility_controls = QHBoxLayout()
-        utility_controls.setSpacing(14)
-        self.analyze_button = QPushButton("BPM")
-        self.next_button = QPushButton("NEXT")
+        utility_controls.setSpacing(8)
+        self.play_button = QPushButton("PLAY")
+        self.next_button = QPushButton("NXT")
         self.stop_button = QPushButton("STOP")
-        self.analyze_button.setObjectName("utilityButton")
+        self.play_button.setObjectName("playButton")
         self.next_button.setObjectName("nextButton")
         self.stop_button.setObjectName("stopButton")
+        self.play_button.setEnabled(False)
         self.next_button.setEnabled(False)
         self.stop_button.setEnabled(False)
-        self.analyze_button.clicked.connect(self._start_analysis)
+        self.play_button.clicked.connect(self._start_playback)
         self.next_button.clicked.connect(self._next_track)
         self.stop_button.clicked.connect(self._stop_playback)
-        utility_controls.addWidget(self.analyze_button)
+        utility_controls.addWidget(self.play_button)
         utility_controls.addWidget(self.next_button)
         utility_controls.addWidget(self.stop_button)
         layout.addLayout(utility_controls)
 
-        self.play_button = QPushButton("PLAY")
-        self.play_button.setObjectName("playButton")
-        self.play_button.setEnabled(False)
-        self.play_button.clicked.connect(self._start_playback)
-        layout.addWidget(self.play_button)
-
-        self.footer = QLabel("LOW BPM TO HIGH BPM / AUTO MIX")
-        self.footer.setObjectName("footer")
-        self.footer.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.footer)
-
-    def _field_label(self, text: str) -> QLabel:
-        label = QLabel(text)
-        label.setObjectName("fieldLabel")
-        return label
+        self.current_title = QLabel("")
+        self.current_title.setObjectName("currentTitle")
+        self.current_title.setAlignment(Qt.AlignCenter)
+        self.current_title.setWordWrap(True)
+        layout.addWidget(self.current_title)
 
     def _apply_style(self) -> None:
         self.setStyleSheet(
@@ -177,12 +145,12 @@ class SonoWindow(QMainWindow):
             * { font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif; }
             #root { background: #050505; }
             #panel {
-                min-width: 700px;
-                max-width: 820px;
-                min-height: 700px;
-                max-height: 820px;
+                min-width: 292px;
+                max-width: 316px;
+                min-height: 332px;
+                max-height: 366px;
                 border: 4px solid #35312b;
-                border-radius: 18px;
+                border-radius: 14px;
                 background: #11110f;
             }
             QLabel {
@@ -190,59 +158,12 @@ class SonoWindow(QMainWindow):
                 font-size: 13px;
                 font-weight: 800;
             }
-            #unitLabel {
-                color: #c53831;
-                font-family: "Courier New", monospace;
-                font-size: 22px;
-                font-weight: 900;
-            }
-            #status {
-                color: #aaa195;
-                font-size: 18px;
-                font-weight: 900;
-            }
-            #statusLed {
-                border-radius: 6px;
-                background: #c1372e;
-            }
             #logo {
                 color: #d8d0c0;
                 font-size: 56px;
                 font-weight: 900;
                 line-height: 0.9;
-                min-height: 190px;
-            }
-            #fieldLabel {
-                color: #9f988d;
-                font-size: 18px;
-                font-weight: 900;
-            }
-            QLineEdit {
-                color: #e7dfcf;
-                background: #050505;
-                border: 2px solid #302d27;
-                border-radius: 7px;
-                font-family: "Courier New", monospace;
-                font-size: 14px;
-                font-weight: 700;
-                padding-left: 10px;
-            }
-            QListWidget {
-                color: #e7dfcf;
-                background: #050505;
-                border: 2px solid #302d27;
-                border-radius: 7px;
-                font-family: "Courier New", monospace;
-                font-size: 13px;
-                font-weight: 700;
-                padding: 10px;
-            }
-            QListWidget::item {
-                min-height: 26px;
-            }
-            QListWidget::item:selected {
-                background: #912c26;
-                color: #050505;
+                min-height: 198px;
             }
             QPushButton {
                 color: #e7dfcf;
@@ -251,9 +172,16 @@ class SonoWindow(QMainWindow):
                 border-radius: 6px;
                 font-weight: 900;
             }
-            #utilityButton, #nextButton, #stopButton {
-                min-height: 48px;
-                font-size: 18px;
+            #playButton, #nextButton, #stopButton {
+                min-width: 76px;
+                min-height: 52px;
+                max-height: 52px;
+                font-size: 17px;
+            }
+            #playButton {
+                color: #050505;
+                background: #6f3ab2;
+                border: 2px solid #a97cff;
             }
             #nextButton {
                 color: #d8d0c0;
@@ -264,16 +192,6 @@ class SonoWindow(QMainWindow):
                 color: #baaea0;
                 background: #11100f;
                 border-color: #3a332d;
-            }
-            #playButton {
-                min-height: 96px;
-                margin-top: 2px;
-                color: #050505;
-                background: #6f3ab2;
-                border: 2px solid #a97cff;
-                border-radius: 8px;
-                font-size: 46px;
-                font-weight: 900;
             }
             #playButton:hover:!disabled {
                 background: #8451cf;
@@ -295,43 +213,42 @@ class SonoWindow(QMainWindow):
                 background: #9e2e27;
                 color: #050505;
             }
-            #footer {
-                color: #5d5750;
+            #currentTitle {
+                min-height: 52px;
+                max-height: 52px;
+                color: #d8d0c0;
                 font-family: "Courier New", monospace;
-                font-size: 11px;
+                font-size: 12px;
                 font-weight: 900;
             }
             """
         )
 
     def _choose_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "SOUND FOLDER")
+        folder = QFileDialog.getExistingDirectory(self, "SNDZ")
         if folder:
-            self.folder_input.setText(folder)
+            self.folder_path = Path(folder)
             self.tracks = []
-            self.track_list.clear()
             self.play_button.setEnabled(False)
             self.next_button.setEnabled(False)
-            self._set_status("READY")
+            self._start_analysis()
 
     def _set_status(self, text: str) -> None:
-        self.status.setText((text or "READY").upper())
+        self.setWindowTitle("SNDZ PLAY LITE")
 
     def _start_analysis(self) -> None:
-        folder = self.folder_input.text().strip()
-        if not folder:
+        if not self.folder_path:
             self._set_status("NO FOLDER")
             return
         self._stop_playback()
-        self.analyze_button.setEnabled(False)
+        self.logo.setEnabled(False)
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        self.track_list.clear()
-        self.footer.setText("ANALYZING")
+        self.current_title.setText("")
         self._set_status("BPM 0%")
 
         self.thread = QThread()
-        self.worker = AnalysisWorker(Path(folder))
+        self.worker = AnalysisWorker(self.folder_path)
         self.worker.moveToThread(self.thread)
         self.thread.started.connect(self.worker.run)
         self.worker.progress.connect(self._on_progress)
@@ -348,36 +265,25 @@ class SonoWindow(QMainWindow):
         self._set_status(f"{message} {percent}%")
 
     def _on_finished(self, tracks: list[SonoTrack], errors: list[str]) -> None:
-        self.analyze_button.setEnabled(True)
+        self.logo.setEnabled(True)
         self.tracks = tracks
-        self._render_tracks()
         self.play_button.setEnabled(bool(self.tracks))
         self.next_button.setEnabled(False)
         self._set_status("READY")
-        bpm_count = sum(1 for track in self.tracks if track.bpm is not None)
-        summary = f"{bpm_count} BPM / {len(self.tracks)} TRACKS"
-        if errors:
-            summary = f"{summary} / {len(errors)} SKIP"
-            self.footer.setToolTip("\n".join(errors[:12]))
-        else:
-            self.footer.setToolTip("")
-        self.footer.setText(summary)
+        self.current_title.setToolTip("\n".join(errors[:12]) if errors else "")
+        self.current_title.setText("")
 
     def _on_failed(self, message: str) -> None:
-        self.analyze_button.setEnabled(True)
+        self.logo.setEnabled(True)
         self._set_status("ERROR")
-        self.footer.setText(message.upper()[:80])
+        self.current_title.setText(message.upper()[:80])
 
     def _clear_worker(self) -> None:
         self.worker = None
         self.thread = None
 
-    def _render_tracks(self) -> None:
-        self.track_list.clear()
-        for track in self.tracks:
-            bpm = f"{track.bpm:03.0f} BPM" if track.bpm is not None else "--- BPM"
-            mix = "MIX" if track.mixable_intro else "---"
-            self.track_list.addItem(f"{bpm}  {mix}  {track.path.name}")
+    def _track_title(self, track: SonoTrack) -> str:
+        return track.path.stem.replace("_", " ").strip().upper() or track.path.name.upper()
 
     def _start_playback(self) -> None:
         if not self.tracks:
@@ -386,7 +292,7 @@ class SonoWindow(QMainWindow):
         ffplay = find_tool("ffplay")
         if not ffplay:
             self._set_status("NO FFPLAY")
-            self.footer.setText("INSTALL FFMPEG")
+            self.current_title.setText("INSTALL FFMPEG")
             return
         self.ffplay = ffplay
         self._stop_playback(reset_status=False)
@@ -395,7 +301,6 @@ class SonoWindow(QMainWindow):
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(len(self.tracks) > 1)
         self.stop_button.setEnabled(True)
-        self.footer.setText("LOW TO HIGH")
         self._play_current(fade_in=False)
 
     def _play_current(self, fade_in: bool) -> None:
@@ -409,8 +314,8 @@ class SonoWindow(QMainWindow):
 
         track = self.tracks[self.play_index]
         fade_out = self._should_auto_mix(track)
-        self.track_list.setCurrentRow(self.play_index)
         self._set_status(f"PLAY {self.play_index + 1}/{len(self.tracks)}")
+        self.current_title.setText(self._track_title(track))
         player = QProcess(self)
         player.finished.connect(lambda *args, process=player: self._on_player_finished(process))
         self.players.append(player)
@@ -447,7 +352,6 @@ class SonoWindow(QMainWindow):
         if self.stop_requested or self.play_index + 1 >= len(self.tracks):
             return
         self.play_index += 1
-        self.footer.setText("AUTO MIX")
         self._play_current(fade_in=True)
 
     def _on_player_finished(self, process: QProcess) -> None:
@@ -477,7 +381,6 @@ class SonoWindow(QMainWindow):
             self.next_button.setEnabled(False)
             self.stop_button.setEnabled(False)
             return
-        self.footer.setText("NEXT")
         self._play_current(fade_in=False)
 
     def _stop_playback(self, reset_status: bool = True) -> None:
