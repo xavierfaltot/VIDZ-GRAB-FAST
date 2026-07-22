@@ -1,2 +1,1 @@
-"""SONO PLAY LITE: local BPM-sorted audio playback."""
-
+"""SNDZ PLAY LITE: local BPM-sorted audio playback."""

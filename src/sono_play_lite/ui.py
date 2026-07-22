@@ -4,8 +4,8 @@ import shutil
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QProcess, QThread, Qt, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Qt, Signal
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -23,7 +23,9 @@ from PySide6.QtWidgets import (
 
 from vidz_grab_fast.ui import LOGO_PATH
 
-from .bpm import SonoError, SonoTrack, analyze_folder
+from .bpm import MIN_MIX_DURATION_SECONDS, MIX_SECONDS, SonoError, SonoTrack, analyze_folder
+
+SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_lite_logo.png"
 
 
 class IndustrialPanel(QFrame):
@@ -57,11 +59,15 @@ class SonoWindow(QMainWindow):
         self.worker: AnalysisWorker | None = None
         self.tracks: list[SonoTrack] = []
         self.play_index = 0
-        self.player: QProcess | None = None
+        self.current_player: QProcess | None = None
+        self.players: list[QProcess] = []
+        self.mix_timer = QTimer(self)
+        self.mix_timer.setSingleShot(True)
+        self.mix_timer.timeout.connect(self._auto_next_mix)
         self.stop_requested = False
-        self.setWindowTitle("SONO PLAY LITE")
-        if LOGO_PATH.exists():
-            self.setWindowIcon(QIcon(str(LOGO_PATH)))
+        self.setWindowTitle("SNDZ PLAY LITE")
+        if SNDZ_LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
         self.setMinimumSize(800, 780)
         self.resize(860, 860)
         self._build_ui()
@@ -98,11 +104,14 @@ class SonoWindow(QMainWindow):
         header.addWidget(self.status)
         layout.addLayout(header)
 
-        self.logo = QLabel("SONO\nPLAY\nLITE")
+        self.logo = QLabel("SNDZ\nPLAY\nLITE")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
+        if SNDZ_LOGO_PATH.exists():
+            pixmap = QPixmap(str(SNDZ_LOGO_PATH))
+            self.logo.setPixmap(pixmap.scaled(190, 190, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
-        layout.addSpacing(20)
+        layout.addSpacing(18)
 
         layout.addWidget(self._field_label("SOUND FOLDER"))
         folder_row = QHBoxLayout()
@@ -125,18 +134,22 @@ class SonoWindow(QMainWindow):
         controls.setSpacing(14)
         self.analyze_button = QPushButton("BPM")
         self.play_button = QPushButton("PLAY")
+        self.next_button = QPushButton("NEXT")
         self.stop_button = QPushButton("STOP")
         self.play_button.setEnabled(False)
+        self.next_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.analyze_button.clicked.connect(self._start_analysis)
         self.play_button.clicked.connect(self._start_playback)
+        self.next_button.clicked.connect(self._next_track)
         self.stop_button.clicked.connect(self._stop_playback)
         controls.addWidget(self.analyze_button)
         controls.addWidget(self.play_button)
+        controls.addWidget(self.next_button)
         controls.addWidget(self.stop_button)
         layout.addLayout(controls)
 
-        self.footer = QLabel("LOW BPM TO HIGH BPM")
+        self.footer = QLabel("LOW BPM TO HIGH BPM / AUTO MIX")
         self.footer.setObjectName("footer")
         self.footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.footer)
@@ -185,7 +198,7 @@ class SonoWindow(QMainWindow):
                 font-size: 56px;
                 font-weight: 900;
                 line-height: 0.9;
-                min-height: 172px;
+                min-height: 190px;
             }
             #fieldLabel {
                 color: #9f988d;
@@ -255,6 +268,7 @@ class SonoWindow(QMainWindow):
             self.tracks = []
             self.track_list.clear()
             self.play_button.setEnabled(False)
+            self.next_button.setEnabled(False)
             self._set_status("READY")
 
     def _set_status(self, text: str) -> None:
@@ -268,6 +282,7 @@ class SonoWindow(QMainWindow):
         self._stop_playback()
         self.analyze_button.setEnabled(False)
         self.play_button.setEnabled(False)
+        self.next_button.setEnabled(False)
         self.track_list.clear()
         self.footer.setText("ANALYZING")
         self._set_status("BPM 0%")
@@ -294,6 +309,7 @@ class SonoWindow(QMainWindow):
         self.tracks = tracks
         self._render_tracks()
         self.play_button.setEnabled(bool(self.tracks))
+        self.next_button.setEnabled(False)
         self._set_status("READY" if not errors else "PARTIAL")
         self.footer.setText(f"{len(self.tracks)} TRACKS / {len(errors)} ERR")
 
@@ -310,7 +326,8 @@ class SonoWindow(QMainWindow):
         self.track_list.clear()
         for track in self.tracks:
             bpm = f"{track.bpm:03.0f} BPM" if track.bpm is not None else "--- BPM"
-            self.track_list.addItem(f"{bpm}  {track.path.name}")
+            mix = "MIX" if track.mixable_intro else "---"
+            self.track_list.addItem(f"{bpm}  {mix}  {track.path.name}")
 
     def _start_playback(self) -> None:
         if not self.tracks:
@@ -324,44 +341,112 @@ class SonoWindow(QMainWindow):
         self.stop_requested = False
         self.play_index = 0
         self.play_button.setEnabled(False)
+        self.next_button.setEnabled(len(self.tracks) > 1)
         self.stop_button.setEnabled(True)
         self.footer.setText("LOW TO HIGH")
-        self._play_current()
+        self._play_current(fade_in=False)
 
-    def _play_current(self) -> None:
+    def _play_current(self, fade_in: bool) -> None:
         if self.play_index >= len(self.tracks):
-            self.player = None
+            self.current_player = None
             self.play_button.setEnabled(True)
+            self.next_button.setEnabled(False)
             self.stop_button.setEnabled(False)
             self._set_status("DONE")
             return
 
         track = self.tracks[self.play_index]
+        fade_out = self._should_auto_mix(track)
         self.track_list.setCurrentRow(self.play_index)
         self._set_status(f"PLAY {self.play_index + 1}/{len(self.tracks)}")
-        self.player = QProcess(self)
-        self.player.finished.connect(self._on_player_finished)
-        self.player.start(
-            "ffplay",
-            ["-nodisp", "-autoexit", "-loglevel", "quiet", str(track.path)],
-        )
+        player = QProcess(self)
+        player.finished.connect(lambda *args, process=player: self._on_player_finished(process))
+        self.players.append(player)
+        self.current_player = player
+        player.start("ffplay", self._ffplay_args(track, fade_in=fade_in, fade_out=fade_out))
 
-    def _on_player_finished(self, *args) -> None:  # noqa: ANN002
-        if self.stop_requested:
+        if fade_out and track.duration_seconds:
+            self.mix_timer.start(max(1, int((track.duration_seconds - MIX_SECONDS) * 1000)))
+        else:
+            self.mix_timer.stop()
+
+    def _should_auto_mix(self, track: SonoTrack) -> bool:
+        next_index = self.play_index + 1
+        if next_index >= len(self.tracks):
+            return False
+        if not self.tracks[next_index].mixable_intro:
+            return False
+        return bool(track.duration_seconds and track.duration_seconds >= MIN_MIX_DURATION_SECONDS)
+
+    def _ffplay_args(self, track: SonoTrack, fade_in: bool, fade_out: bool) -> list[str]:
+        args = ["-nodisp", "-autoexit", "-loglevel", "quiet"]
+        filters: list[str] = []
+        if fade_in:
+            filters.append(f"afade=t=in:st=0:d={MIX_SECONDS:g}")
+        if fade_out and track.duration_seconds:
+            start = max(0.0, track.duration_seconds - MIX_SECONDS)
+            filters.append(f"afade=t=out:st={start:.3f}:d={MIX_SECONDS:g}")
+        if filters:
+            args.extend(["-af", ",".join(filters)])
+        args.append(str(track.path))
+        return args
+
+    def _auto_next_mix(self) -> None:
+        if self.stop_requested or self.play_index + 1 >= len(self.tracks):
             return
         self.play_index += 1
-        self._play_current()
+        self.footer.setText("AUTO MIX")
+        self._play_current(fade_in=True)
+
+    def _on_player_finished(self, process: QProcess) -> None:
+        if process in self.players:
+            self.players.remove(process)
+        if self.stop_requested:
+            return
+        if process is not self.current_player:
+            process.deleteLater()
+            return
+        process.deleteLater()
+        self.mix_timer.stop()
+        self.play_index += 1
+        self._play_current(fade_in=False)
+
+    def _next_track(self) -> None:
+        if not self.tracks:
+            return
+        self.mix_timer.stop()
+        self.play_index += 1
+        self.stop_requested = True
+        self._kill_players()
+        self.stop_requested = False
+        if self.play_index >= len(self.tracks):
+            self._set_status("DONE")
+            self.play_button.setEnabled(True)
+            self.next_button.setEnabled(False)
+            self.stop_button.setEnabled(False)
+            return
+        self.footer.setText("NEXT")
+        self._play_current(fade_in=False)
 
     def _stop_playback(self, reset_status: bool = True) -> None:
         self.stop_requested = True
-        if self.player and self.player.state() != QProcess.NotRunning:
-            self.player.kill()
-            self.player.waitForFinished(1500)
-        self.player = None
+        self.mix_timer.stop()
+        self._kill_players()
+        self.current_player = None
         self.play_button.setEnabled(bool(self.tracks))
+        self.next_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         if reset_status:
             self._set_status("READY")
+
+    def _kill_players(self) -> None:
+        for player in list(self.players):
+            if player.state() != QProcess.NotRunning:
+                player.kill()
+                player.waitForFinished(1500)
+            if player in self.players:
+                self.players.remove(player)
+            player.deleteLater()
 
     def closeEvent(self, event) -> None:  # noqa: ANN001
         self._stop_playback(reset_status=False)
@@ -370,7 +455,7 @@ class SonoWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("SONO PLAY LITE")
+    app.setApplicationName("SNDZ PLAY LITE")
     app.setOrganizationName("RUSH OPERATOR")
     window = SonoWindow()
     window.show()

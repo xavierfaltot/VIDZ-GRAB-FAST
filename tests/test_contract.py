@@ -11,7 +11,13 @@ from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
 from vidz_grab_fast.ui import MainWindow
-from sono_play_lite.bpm import SonoTrack, analyze_folder, find_audio_files, sort_tracks_by_bpm
+from sono_play_lite.bpm import (
+    SonoTrack,
+    analyze_folder,
+    find_audio_files,
+    is_mixable_intro_from_energies,
+    sort_tracks_by_bpm,
+)
 
 
 def test_clean_filename_is_ascii_lowercase_snake_case() -> None:
@@ -180,3 +186,9 @@ def test_sono_analyze_folder_uses_estimator_and_sorts(tmp_path) -> None:
         ("c.mp3", 110.0),
         ("a.mp3", 128.0),
     ]
+
+
+def test_sono_mixable_intro_energy_gate() -> None:
+    assert is_mixable_intro_from_energies([0.3] * 24)
+    assert not is_mixable_intro_from_energies([0.0] * 24)
+    assert not is_mixable_intro_from_energies([0.0] * 20 + [0.9])

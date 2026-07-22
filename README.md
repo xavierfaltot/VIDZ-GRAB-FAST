@@ -75,9 +75,9 @@ To create or refresh the macOS desktop app:
 
 That creates `~/Desktop/VIDZ AUDIO FAST.app`.
 
-## SONO PLAY LITE
+## SNDZ PLAY LITE
 
-SONO PLAY LITE is the light playback companion for audio folders. Choose a sound folder, press `BPM`, then press `PLAY`. The app analyzes local audio tempo and plays the list from lowest BPM to highest BPM, so the energy climbs.
+SNDZ PLAY LITE is the light playback companion for audio folders. Choose a sound folder, press `BPM`, then press `PLAY`. The app analyzes local audio tempo and plays the list from lowest BPM to highest BPM, so the energy climbs.
 
 Supported inputs:
 
@@ -85,23 +85,23 @@ Supported inputs:
 mp3, wav, flac, aiff, aac, m4a, mp4
 ```
 
-This is a lite player: BPM analysis, sorted queue, sequential playback. It does not tag, rewrite, normalize, beatmatch, crossfade, or alter the source files.
+This is a lite player: BPM analysis, sorted queue, `NEXT`, and automatic intro crossfade when the next track has a usable music intro. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
 
 Run it with:
 
 ```bash
-python run_sono.py
+python run_sndz.py
 ```
 
-Or double-click `SONO PLAY LITE.command`.
+Or double-click `SNDZ PLAY LITE.command`.
 
 To create or refresh the macOS desktop app:
 
 ```bash
-./scripts/create_sono_desktop_app.command
+./scripts/create_sndz_desktop_app.command
 ```
 
-That creates `~/Desktop/SONO PLAY LITE.app`.
+That creates `~/Desktop/SNDZ PLAY LITE.app`.
 
 ## Contract
 

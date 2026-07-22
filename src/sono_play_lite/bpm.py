@@ -18,6 +18,9 @@ HOP_SAMPLES = 512
 MIN_BPM = 60
 MAX_BPM = 190
 MAX_ANALYSIS_SECONDS = 120
+INTRO_ANALYSIS_SECONDS = 18
+MIX_SECONDS = 8.0
+MIN_MIX_DURATION_SECONDS = 24.0
 SUPPORTED_AUDIO_EXTENSIONS = {
     ".aac",
     ".aif",
@@ -38,6 +41,8 @@ class SonoError(RuntimeError):
 class SonoTrack:
     path: Path
     bpm: float | None
+    duration_seconds: float | None = None
+    mixable_intro: bool = False
 
 
 Estimator = Callable[[Path], float | None]
@@ -65,14 +70,43 @@ def find_audio_files(folder: Path) -> list[Path]:
     return sorted(files, key=lambda path: str(path).lower())
 
 
-def decode_audio_pcm(path: Path, max_seconds: int = MAX_ANALYSIS_SECONDS) -> bytes:
-    ffmpeg = require_tool("ffmpeg")
+def probe_duration_seconds(path: Path) -> float | None:
+    ffprobe = require_tool("ffprobe")
     result = subprocess.run(
         [
-            ffmpeg,
-            "-nostdin",
+            ffprobe,
             "-v",
             "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=nw=1:nk=1",
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        duration = float(result.stdout.strip())
+    except ValueError:
+        return None
+    return duration if duration > 0 else None
+
+
+def decode_audio_pcm(
+    path: Path,
+    max_seconds: int = MAX_ANALYSIS_SECONDS,
+    start_seconds: float = 0.0,
+) -> bytes:
+    ffmpeg = require_tool("ffmpeg")
+    command = [ffmpeg, "-nostdin", "-v", "error"]
+    if start_seconds > 0:
+        command.extend(["-ss", f"{start_seconds:.3f}"])
+    command.extend(
+        [
             "-i",
             str(path),
             "-t",
@@ -85,10 +119,9 @@ def decode_audio_pcm(path: Path, max_seconds: int = MAX_ANALYSIS_SECONDS) -> byt
             "-f",
             "s16le",
             "pipe:1",
-        ],
-        capture_output=True,
-        check=False,
+        ]
     )
+    result = subprocess.run(command, capture_output=True, check=False)
     if result.returncode != 0 or not result.stdout:
         details = result.stderr.decode("utf-8", errors="ignore").strip()
         raise SonoError(details or f"Could not decode {path.name}")
@@ -148,6 +181,24 @@ def estimate_bpm(path: Path, min_bpm: int = MIN_BPM, max_bpm: int = MAX_BPM) -> 
     return float(best_bpm)
 
 
+def is_mixable_intro_from_energies(energies: list[float]) -> bool:
+    if len(energies) < 12:
+        return False
+    active = [value for value in energies if value > 0.08]
+    active_ratio = len(active) / len(energies)
+    mean_energy = sum(energies) / len(energies)
+    peak_energy = max(energies, default=0.0)
+    return active_ratio >= 0.35 and mean_energy >= 0.08 and peak_energy >= 0.22
+
+
+def has_mixable_intro(path: Path) -> bool:
+    try:
+        pcm = decode_audio_pcm(path, max_seconds=INTRO_ANALYSIS_SECONDS)
+    except SonoError:
+        return False
+    return is_mixable_intro_from_energies(energy_envelope(pcm))
+
+
 def sort_tracks_by_bpm(tracks: list[SonoTrack]) -> list[SonoTrack]:
     return sorted(
         tracks,
@@ -176,10 +227,21 @@ def analyze_folder(
             progress(f"BPM {index}/{total}", int(((index - 1) / total) * 100))
         try:
             bpm = estimator(path)
+            duration = probe_duration_seconds(path)
+            mixable_intro = has_mixable_intro(path)
         except SonoError as exc:
             bpm = None
+            duration = None
+            mixable_intro = False
             errors.append(f"{path.name}: {exc}")
-        tracks.append(SonoTrack(path=path, bpm=bpm))
+        tracks.append(
+            SonoTrack(
+                path=path,
+                bpm=bpm,
+                duration_seconds=duration,
+                mixable_intro=mixable_intro,
+            )
+        )
         if progress:
             progress(f"BPM {index}/{total}", int((index / total) * 100))
 

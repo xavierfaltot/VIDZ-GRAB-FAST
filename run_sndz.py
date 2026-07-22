@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch SONO PLAY LITE from the source checkout."""
+"""Launch SNDZ PLAY LITE from the source checkout."""
 
 from pathlib import Path
 import sys
@@ -14,4 +14,3 @@ from sono_play_lite.ui import main  # noqa: E402
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
