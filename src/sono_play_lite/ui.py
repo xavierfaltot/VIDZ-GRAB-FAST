@@ -32,6 +32,11 @@ from .bpm import (
 APP_NAME = "SNDZ PLAY MINI"
 SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_mini_logo.png"
 TILE_SIZE = 170
+CONTROL_GAP = 12
+PANEL_WIDTH = TILE_SIZE * 2 + CONTROL_GAP + 24
+PANEL_HEIGHT = 432
+WINDOW_WIDTH = 430
+WINDOW_HEIGHT = 476
 
 
 class IndustrialPanel(QFrame):
@@ -67,8 +72,8 @@ class TransportButton(QPushButton):
 
         center_y = self.height() / 2
         if self.mode == "play":
-            width = 62
-            height = 76
+            width = 100
+            height = 116
             x_pos = (self.width() - width) / 2 + 4
             painter.drawPolygon(
                 QPolygonF(
@@ -81,9 +86,9 @@ class TransportButton(QPushButton):
             )
             return
 
-        width = 46
-        height = 66
-        gap = 8
+        width = 64
+        height = 100
+        gap = 6
         start_x = (self.width() - (width * 2 + gap)) / 2
         for offset in (0, width + gap):
             x_pos = start_x + offset
@@ -134,7 +139,8 @@ class SonoWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setFixedSize(430, 476)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -148,7 +154,8 @@ class SonoWindow(QMainWindow):
         shell.setSpacing(0)
 
         self.panel = IndustrialPanel()
-        self.panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.panel.setFixedSize(PANEL_WIDTH, PANEL_HEIGHT)
+        self.panel.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
@@ -169,7 +176,7 @@ class SonoWindow(QMainWindow):
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
         utility_controls = QHBoxLayout()
-        utility_controls.setSpacing(12)
+        utility_controls.setSpacing(CONTROL_GAP)
         self.play_button = self._transport_button("playButton", "play", "PLAY")
         self.next_button = self._transport_button("nextButton", "next", "NEXT")
         self.play_button.setEnabled(False)
@@ -195,15 +202,11 @@ class SonoWindow(QMainWindow):
         self.setStyleSheet(
             """
             * { font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif; }
-            #root { background: #050505; }
+            #root { background: #000000; }
             #panel {
-                min-width: 376px;
-                max-width: 400px;
-                min-height: 432px;
-                max-height: 452px;
-                border: 4px solid #35312b;
+                border: 0px;
                 border-radius: 0px;
-                background: #11110f;
+                background: #000000;
             }
             QLabel {
                 color: #9d9688;

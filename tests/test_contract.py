@@ -11,7 +11,7 @@ from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
 from vidz_grab_fast.ui import MainWindow
-from sono_play_lite.ui import SonoWindow
+from sono_play_lite.ui import PANEL_HEIGHT, PANEL_WIDTH, SonoWindow
 from sono_play_lite.bpm import (
     SonoTrack,
     analyze_folder,
@@ -219,8 +219,31 @@ def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
     assert window.next_button.height() == window.logo.height()
     assert window.play_button.y() == window.next_button.y()
     assert window.play_button.x() < window.next_button.x()
+    assert window.panel.width() == PANEL_WIDTH
+    assert window.panel.height() == PANEL_HEIGHT
+    assert window.maximumWidth() > window.minimumWidth()
     assert window.findChildren(QLineEdit) == []
     assert window.findChildren(QListWidget) == []
+
+    window.close()
+    assert app is not None
+
+
+def test_sndz_maximized_layout_keeps_mini_panel_centered(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+    window.show()
+    window.resize(1000, 800)
+    app.processEvents()
+
+    root_rect = window.centralWidget().rect()
+    panel_rect = window.panel.geometry()
+
+    assert window.panel.width() == PANEL_WIDTH
+    assert window.panel.height() == PANEL_HEIGHT
+    assert abs(panel_rect.center().x() - root_rect.center().x()) <= 1
+    assert abs(panel_rect.center().y() - root_rect.center().y()) <= 1
 
     window.close()
     assert app is not None
