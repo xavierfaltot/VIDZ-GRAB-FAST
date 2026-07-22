@@ -75,9 +75,9 @@ To create or refresh the macOS desktop app:
 
 That creates `~/Desktop/VIDZ AUDIO FAST.app`.
 
-## SNDZ PLAY LITE
+## SNDZ PLAY MINI
 
-SNDZ PLAY LITE is the light playback companion for audio folders. Click the logo, choose a sound folder, then the app analyzes local audio tempo immediately. Press `PLAY` to play the list from lowest BPM to highest BPM, so the energy climbs.
+SNDZ PLAY MINI is the light playback companion for audio folders. Click the logo, choose a sound folder, then the app analyzes local audio tempo immediately. Press the play icon to play the list from lowest BPM to highest BPM, so the energy climbs.
 
 Supported inputs:
 
@@ -85,23 +85,23 @@ Supported inputs:
 mp3, wav, flac, aiff, aac, m4a, mp4
 ```
 
-This is a tiny lite player: logo folder pick, automatic BPM analysis, sorted queue, `PLAY`, `NXT`, `STOP`, and automatic intro crossfade when the next track has a usable music intro. The only visible text in the player is the current track title. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
+This is a tiny mini player: logo folder pick, automatic BPM analysis, sorted queue, icon controls for play, next, stop, and automatic intro crossfade when the next track has a usable music intro. The only visible text in the player is the current track title. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
 
 Run it with:
 
 ```bash
-python run_sndz.py
+python run_sndz_mini.py
 ```
 
-Or double-click `SNDZ PLAY LITE.command`.
+Or double-click `SNDZ PLAY MINI.command`.
 
 To create or refresh the macOS desktop app:
 
 ```bash
-./scripts/create_sndz_desktop_app.command
+./scripts/create_sndz_mini_desktop_app.command
 ```
 
-That creates `~/Desktop/SNDZ PLAY LITE.app`.
+That creates `~/Desktop/SNDZ PLAY MINI.app`.
 
 ## Contract
 

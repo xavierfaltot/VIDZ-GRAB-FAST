@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSizePolicy,
+    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -29,7 +30,9 @@ from .bpm import (
     find_tool,
 )
 
-SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_lite_logo.png"
+APP_NAME = "SNDZ PLAY MINI"
+SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_mini_logo.png"
+TILE_SIZE = 88
 
 
 class IndustrialPanel(QFrame):
@@ -80,10 +83,10 @@ class SonoWindow(QMainWindow):
         self.mix_timer.setSingleShot(True)
         self.mix_timer.timeout.connect(self._auto_next_mix)
         self.stop_requested = False
-        self.setWindowTitle("SNDZ PLAY LITE")
+        self.setWindowTitle(APP_NAME)
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setFixedSize(340, 390)
+        self.setFixedSize(330, 274)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -93,7 +96,7 @@ class SonoWindow(QMainWindow):
         root.setObjectName("root")
         self.setCentralWidget(root)
         shell = QVBoxLayout(root)
-        shell.setContentsMargins(12, 12, 12, 12)
+        shell.setContentsMargins(10, 10, 10, 10)
         shell.setSpacing(0)
 
         self.panel = IndustrialPanel()
@@ -101,27 +104,27 @@ class SonoWindow(QMainWindow):
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(24, 22, 24, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 14, 14, 12)
+        layout.setSpacing(10)
 
         self.logo = ClickableLogo("SNDZ\nPLAY\nLITE")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
         self.logo.setCursor(Qt.PointingHandCursor)
         self.logo.clicked.connect(self._choose_folder)
+        self.logo.setFixedSize(TILE_SIZE, TILE_SIZE)
         if SNDZ_LOGO_PATH.exists():
             pixmap = QPixmap(str(SNDZ_LOGO_PATH))
-            self.logo.setPixmap(pixmap.scaled(190, 190, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.logo.setPixmap(
+                pixmap.scaled(TILE_SIZE, TILE_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
         utility_controls = QHBoxLayout()
         utility_controls.setSpacing(8)
-        self.play_button = QPushButton("PLAY")
-        self.next_button = QPushButton("NXT")
-        self.stop_button = QPushButton("STOP")
-        self.play_button.setObjectName("playButton")
-        self.next_button.setObjectName("nextButton")
-        self.stop_button.setObjectName("stopButton")
+        self.play_button = self._icon_button("playButton", "PLAY", QStyle.SP_MediaPlay)
+        self.next_button = self._icon_button("nextButton", "NEXT", QStyle.SP_MediaSkipForward)
+        self.stop_button = self._icon_button("stopButton", "STOP", QStyle.SP_MediaStop)
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(False)
         self.stop_button.setEnabled(False)
@@ -139,16 +142,26 @@ class SonoWindow(QMainWindow):
         self.current_title.setWordWrap(True)
         layout.addWidget(self.current_title)
 
+    def _icon_button(self, object_name: str, name: str, icon: QStyle.StandardPixmap) -> QPushButton:
+        button = QPushButton("")
+        button.setObjectName(object_name)
+        button.setAccessibleName(name)
+        button.setToolTip(name)
+        button.setFixedSize(TILE_SIZE, TILE_SIZE)
+        button.setIcon(self.style().standardIcon(icon))
+        button.setIconSize(button.size() * 0.56)
+        return button
+
     def _apply_style(self) -> None:
         self.setStyleSheet(
             """
             * { font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif; }
             #root { background: #050505; }
             #panel {
-                min-width: 292px;
-                max-width: 316px;
-                min-height: 332px;
-                max-height: 366px;
+                min-width: 286px;
+                max-width: 310px;
+                min-height: 230px;
+                max-height: 254px;
                 border: 4px solid #35312b;
                 border-radius: 14px;
                 background: #11110f;
@@ -163,7 +176,6 @@ class SonoWindow(QMainWindow):
                 font-size: 56px;
                 font-weight: 900;
                 line-height: 0.9;
-                min-height: 198px;
             }
             QPushButton {
                 color: #e7dfcf;
@@ -173,10 +185,11 @@ class SonoWindow(QMainWindow):
                 font-weight: 900;
             }
             #playButton, #nextButton, #stopButton {
-                min-width: 76px;
-                min-height: 52px;
-                max-height: 52px;
-                font-size: 17px;
+                min-width: 88px;
+                max-width: 88px;
+                min-height: 88px;
+                max-height: 88px;
+                border-radius: 8px;
             }
             #playButton {
                 color: #050505;
@@ -214,18 +227,18 @@ class SonoWindow(QMainWindow):
                 color: #050505;
             }
             #currentTitle {
-                min-height: 52px;
-                max-height: 52px;
+                min-height: 30px;
+                max-height: 30px;
                 color: #d8d0c0;
                 font-family: "Courier New", monospace;
-                font-size: 12px;
+                font-size: 11px;
                 font-weight: 900;
             }
             """
         )
 
     def _choose_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "SNDZ")
+        folder = QFileDialog.getExistingDirectory(self, "SNDZ PLAY MINI")
         if folder:
             self.folder_path = Path(folder)
             self.tracks = []
@@ -234,7 +247,7 @@ class SonoWindow(QMainWindow):
             self._start_analysis()
 
     def _set_status(self, text: str) -> None:
-        self.setWindowTitle("SNDZ PLAY LITE")
+        self.setWindowTitle(APP_NAME)
 
     def _start_analysis(self) -> None:
         if not self.folder_path:
@@ -410,7 +423,7 @@ class SonoWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("SNDZ PLAY LITE")
+    app.setApplicationName(APP_NAME)
     app.setOrganizationName("RUSH OPERATOR")
     window = SonoWindow()
     window.show()

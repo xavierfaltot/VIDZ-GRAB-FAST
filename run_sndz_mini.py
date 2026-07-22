@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Launch SNDZ PLAY LITE from the source checkout."""
+"""Launch SNDZ PLAY MINI from the source checkout."""
 
 from pathlib import Path
 import sys

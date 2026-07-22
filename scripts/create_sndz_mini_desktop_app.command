@@ -1,17 +1,17 @@
 #!/bin/zsh
 set -e
 
-APP_NAME="SNDZ PLAY LITE"
+APP_NAME="SNDZ PLAY MINI"
 REPO_DIR="${0:A:h:h}"
 APP_DIR="$HOME/Desktop/$APP_NAME.app"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-ICON_SOURCE="$REPO_DIR/src/vidz_grab_fast/assets/sndz_play_lite_logo.png"
-ICON_FILE="SNDZ_PLAY_LITE.png"
+ICON_SOURCE="$REPO_DIR/src/vidz_grab_fast/assets/sndz_play_mini_logo.png"
+ICON_FILE="SNDZ_PLAY_MINI.png"
 cp "$ICON_SOURCE" "$APP_DIR/Contents/Resources/$ICON_FILE"
 
 if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
-  ICONSET="$APP_DIR/Contents/Resources/SNDZ_PLAY_LITE.iconset"
+  ICONSET="$APP_DIR/Contents/Resources/SNDZ_PLAY_MINI.iconset"
   mkdir -p "$ICONSET"
   sips -z 16 16 "$ICON_SOURCE" --out "$ICONSET/icon_16x16.png" >/dev/null
   sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
@@ -23,8 +23,8 @@ if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
   sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
   sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET/icon_512x512.png" >/dev/null
   sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
-  iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/SNDZ_PLAY_LITE.icns"
-  ICON_FILE="SNDZ_PLAY_LITE.icns"
+  iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/SNDZ_PLAY_MINI.icns"
+  ICON_FILE="SNDZ_PLAY_MINI.icns"
 fi
 
 cat > "$APP_DIR/Contents/MacOS/$APP_NAME" <<SCRIPT
@@ -38,7 +38,7 @@ fi
 if ! ".venv/bin/python" -c "import PySide6.QtWidgets" >/dev/null 2>&1; then
   ".venv/bin/python" -m pip install -r requirements.txt
 fi
-exec ".venv/bin/python" run_sndz.py
+exec ".venv/bin/python" run_sndz_mini.py
 SCRIPT
 chmod +x "$APP_DIR/Contents/MacOS/$APP_NAME"
 
@@ -55,7 +55,7 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleIconFile</key>
   <string>$ICON_FILE</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rushoperator.sndzplaylite</string>
+  <string>com.rushoperator.sndzplaymini</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>

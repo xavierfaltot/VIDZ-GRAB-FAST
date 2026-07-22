@@ -1,1 +1,1 @@
-"""SNDZ PLAY LITE: local BPM-sorted audio playback."""
+"""SNDZ PLAY MINI: local BPM-sorted audio playback."""
