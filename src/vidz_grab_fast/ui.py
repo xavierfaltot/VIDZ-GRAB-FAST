@@ -57,20 +57,19 @@ class GrabWorker(QObject):
 
     def run(self) -> None:
         self.progress.emit("LIST", 1)
-        pending: list[tuple[str, bool]] = []
+        urls: list[str] = []
         errors: list[str] = []
         seen: set[str] = set()
         grabbed = existing_source_urls(self.output_dir)
         skipped_count = 0
         for url in self.input_urls:
-            from_playlist = is_playlist_url(url)
-            remaining = MAX_BATCH_ITEMS - len(pending)
+            remaining = MAX_BATCH_ITEMS - len(urls)
             if remaining <= 0:
                 break
             try:
                 expanded_urls = expand_source_url(url, remaining)
             except GrabError as exc:
-                if from_playlist:
+                if is_playlist_url(url):
                     errors.append(f"LIST: {exc}")
                     continue
                 expanded_urls = [url]
@@ -81,11 +80,11 @@ class GrabWorker(QObject):
                 if expanded_url in grabbed:
                     skipped_count += 1
                     continue
-                pending.append((expanded_url, from_playlist))
-                if len(pending) >= MAX_BATCH_ITEMS:
+                urls.append(expanded_url)
+                if len(urls) >= MAX_BATCH_ITEMS:
                     break
 
-        if not pending:
+        if not urls:
             if errors:
                 self.failed.emit(errors[0])
                 return
@@ -96,8 +95,8 @@ class GrabWorker(QObject):
             return
 
         success_count = 0
-        total = len(pending)
-        for index, (url, from_playlist) in enumerate(pending, start=1):
+        total = len(urls)
+        for index, url in enumerate(urls, start=1):
             request = GrabRequest(
                 output_dir=self.output_dir,
                 artist_account=self.artist_account,
@@ -113,7 +112,7 @@ class GrabWorker(QObject):
                 grab(request, item_progress)
                 success_count += 1
             except (GrabError, OSError, RuntimeError) as exc:
-                if from_playlist or is_unavailable_error(exc):
+                if is_unavailable_error(exc):
                     skipped_count += 1
                 else:
                     errors.append(f"{index}: {exc}")

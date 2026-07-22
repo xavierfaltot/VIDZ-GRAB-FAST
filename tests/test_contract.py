@@ -198,58 +198,6 @@ def test_worker_counts_unavailable_video_as_skip(monkeypatch, tmp_path) -> None:
     assert finished == [(2, 0, 1, [])]
 
 
-def test_worker_skips_any_failed_video_from_playlist(monkeypatch, tmp_path) -> None:
-    finished: list[tuple[int, int, int, list[str]]] = []
-
-    def fake_expand(url: str, max_items: int) -> list[str]:
-        return [
-            "https://www.youtube.com/watch?v=ok",
-            "https://www.youtube.com/watch?v=broken",
-            "https://www.youtube.com/watch?v=ok2",
-        ]
-
-    def fake_grab(request, progress):  # noqa: ANN001
-        if request.source_url.endswith("broken"):
-            raise GrabError("HTTP Error 500")
-        progress("DONE", 100)
-
-    monkeypatch.setattr("vidz_grab_fast.ui.expand_source_url", fake_expand)
-    monkeypatch.setattr("vidz_grab_fast.ui.grab", fake_grab)
-
-    worker = GrabWorker(
-        output_dir=tmp_path,
-        artist_account="",
-        urls=["https://youtube.com/playlist?list=PL123"],
-    )
-    worker.finished.connect(lambda ok, err, skip, errors: finished.append((ok, err, skip, errors)))
-    worker.run()
-
-    assert finished == [(2, 0, 1, [])]
-
-
-def test_worker_keeps_direct_video_failure_as_error(monkeypatch, tmp_path) -> None:
-    finished: list[tuple[int, int, int, list[str]]] = []
-
-    def fake_expand(url: str, max_items: int) -> list[str]:
-        return [url]
-
-    def fake_grab(request, progress):  # noqa: ANN001, ARG001
-        raise GrabError("HTTP Error 500")
-
-    monkeypatch.setattr("vidz_grab_fast.ui.expand_source_url", fake_expand)
-    monkeypatch.setattr("vidz_grab_fast.ui.grab", fake_grab)
-
-    worker = GrabWorker(
-        output_dir=tmp_path,
-        artist_account="",
-        urls=["https://www.youtube.com/watch?v=broken"],
-    )
-    worker.finished.connect(lambda ok, err, skip, errors: finished.append((ok, err, skip, errors)))
-    worker.run()
-
-    assert finished == [(0, 1, 0, ["1: HTTP Error 500"])]
-
-
 def test_playlist_expansion_failure_does_not_download_playlist_url(monkeypatch, tmp_path) -> None:
     failures: list[str] = []
 
