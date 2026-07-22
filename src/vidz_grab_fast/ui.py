@@ -31,6 +31,11 @@ from .grabber import (
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
+LOGO_SIZE = 170
+PANEL_WIDTH = 430
+PANEL_HEIGHT = 632
+WINDOW_WIDTH = 520
+WINDOW_HEIGHT = 700
 
 
 class IndustrialPanel(QFrame):
@@ -124,8 +129,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("VIDZ GRAB FAST")
         if LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(LOGO_PATH)))
-        self.setMinimumSize(820, 820)
-        self.resize(900, 900)
+        self.resize(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self.setMinimumSize(WINDOW_WIDTH, WINDOW_HEIGHT)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -135,16 +140,17 @@ class MainWindow(QMainWindow):
         root.setObjectName("root")
         self.setCentralWidget(root)
         shell = QVBoxLayout(root)
-        shell.setContentsMargins(28, 28, 28, 28)
-        shell.setSpacing(18)
+        shell.setContentsMargins(10, 10, 10, 10)
+        shell.setSpacing(0)
 
         self.panel = IndustrialPanel()
-        self.panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.panel.setFixedSize(PANEL_WIDTH, PANEL_HEIGHT)
+        self.panel.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(78, 50, 78, 40)
-        layout.setSpacing(14)
+        layout.setContentsMargins(18, 18, 18, 14)
+        layout.setSpacing(10)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
@@ -155,7 +161,7 @@ class MainWindow(QMainWindow):
         header.addStretch(1)
         self.status_led = QLabel("")
         self.status_led.setObjectName("statusLed")
-        self.status_led.setFixedSize(12, 12)
+        self.status_led.setFixedSize(10, 10)
         header.addWidget(self.status_led)
         self.status = QLabel("READY")
         self.status.setObjectName("status")
@@ -165,43 +171,44 @@ class MainWindow(QMainWindow):
         self.logo = QLabel("VIDZ\nGRAB\nFAST")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
+        self.logo.setFixedSize(LOGO_SIZE, LOGO_SIZE)
         if LOGO_PATH.exists():
             pixmap = QPixmap(str(LOGO_PATH))
             self.logo.setPixmap(
-                pixmap.scaled(220, 220, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.scaled(LOGO_SIZE, LOGO_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
-        layout.addSpacing(22)
+        layout.addSpacing(8)
 
         form = QVBoxLayout()
         form.setContentsMargins(0, 0, 0, 0)
-        form.setSpacing(10)
+        form.setSpacing(6)
         layout.addLayout(form)
 
         self.url_input = QPlainTextEdit()
         self.url_input.setObjectName("urlInput")
         self.url_input.setTabChangesFocus(True)
-        self.url_input.document().setDocumentMargin(10)
-        self.url_input.setFixedHeight(106)
+        self.url_input.document().setDocumentMargin(8)
+        self.url_input.setFixedHeight(92)
         self.artist_input = self._line("ARTIST NAME")
         self.output_input = self._line("OUTPUT FOLDER")
         self.output_input.setReadOnly(True)
         choose = QPushButton("Choose Folder")
         choose.setObjectName("chooseButton")
-        choose.setFixedHeight(42)
+        choose.setFixedHeight(36)
         choose.clicked.connect(self._choose_folder)
 
         form.addWidget(self._field_label("URLS"))
         form.addWidget(self.url_input)
-        form.addSpacing(8)
+        form.addSpacing(4)
         form.addWidget(self._field_label("ARTIST NAME"))
         form.addWidget(self.artist_input)
-        form.addSpacing(8)
+        form.addSpacing(4)
         form.addWidget(self._field_label("OUTPUT FOLDER"))
 
         output_row = QHBoxLayout()
         output_row.setContentsMargins(0, 0, 0, 0)
-        output_row.setSpacing(22)
+        output_row.setSpacing(10)
         output_row.addWidget(self.output_input, 1)
         output_row.addWidget(choose)
         form.addLayout(output_row)
@@ -222,13 +229,13 @@ class MainWindow(QMainWindow):
             screw = QLabel("+", self.panel)
             screw.setObjectName(screw_name)
             screw.setAlignment(Qt.AlignCenter)
-            screw.setFixedSize(34, 34)
+            screw.setFixedSize(0, 0)
 
     def _line(self, placeholder: str) -> QLineEdit:
         line = QLineEdit()
         line.setPlaceholderText("")
         line.setAccessibleName(placeholder)
-        line.setFixedHeight(42)
+        line.setFixedHeight(36)
         return line
 
     def _field_label(self, text: str) -> QLabel:
@@ -259,19 +266,15 @@ class MainWindow(QMainWindow):
                 font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif;
             }
             #root {
-                background: #050505;
+                background: #000000;
             }
             #panel {
-                min-width: 720px;
-                max-width: 850px;
-                min-height: 720px;
-                max-height: 850px;
-                border: 4px solid #35312b;
-                border-radius: 18px;
-                background: #11110f;
+                border: 0px;
+                border-radius: 0px;
+                background: #000000;
             }
             #panel::disabled {
-                background: #11110f;
+                background: #000000;
             }
             QLabel {
                 color: #9d9688;
@@ -281,53 +284,52 @@ class MainWindow(QMainWindow):
             #unitLabel {
                 color: #c53831;
                 font-family: "Courier New", monospace;
-                font-size: 22px;
+                font-size: 15px;
                 font-weight: 900;
             }
             #status {
                 color: #aaa195;
-                font-size: 18px;
+                font-size: 14px;
                 font-weight: 900;
             }
             #statusLed {
-                border-radius: 6px;
+                border-radius: 5px;
                 background: #c1372e;
             }
             #logo {
-                min-height: 220px;
                 color: #d8d0c0;
-                font-size: 48px;
+                font-size: 38px;
                 font-weight: 900;
             }
             #fieldLabel {
                 color: #9f988d;
-                font-size: 18px;
+                font-size: 13px;
                 font-weight: 900;
             }
             QLineEdit, QPlainTextEdit {
-                min-height: 38px;
+                min-height: 34px;
                 color: #e7dfcf;
                 background: #050505;
                 border: 2px solid #302d27;
-                border-radius: 7px;
+                border-radius: 0px;
                 font-family: "Courier New", monospace;
-                font-size: 16px;
+                font-size: 13px;
                 font-weight: 700;
             }
             #urlInput {
-                min-height: 106px;
-                max-height: 106px;
+                min-height: 92px;
+                max-height: 92px;
             }
             QLineEdit:focus, QPlainTextEdit:focus {
                 border: 2px solid #8d2a24;
             }
             QPushButton {
-                min-height: 38px;
+                min-height: 34px;
                 color: #e7dfcf;
                 background: #181716;
                 border: 2px solid #343029;
-                border-radius: 6px;
-                font-size: 16px;
+                border-radius: 0px;
+                font-size: 13px;
                 font-weight: 900;
             }
             QPushButton:hover {
@@ -338,16 +340,16 @@ class MainWindow(QMainWindow):
                 background: #151513;
             }
             #chooseButton {
-                min-width: 170px;
+                min-width: 132px;
             }
             #grabButton {
-                min-height: 82px;
-                margin-top: 14px;
+                min-height: 64px;
+                margin-top: 8px;
                 color: #070707;
                 background: #9e2e27;
                 border: 2px solid #5c1b17;
-                border-radius: 8px;
-                font-size: 48px;
+                border-radius: 0px;
+                font-size: 38px;
                 font-weight: 900;
             }
             #grabButton:hover {

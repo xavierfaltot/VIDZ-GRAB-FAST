@@ -17,7 +17,7 @@ from vidz_grab_fast.grabber import (
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
-from vidz_grab_fast.ui import GrabWorker, MainWindow
+from vidz_grab_fast.ui import LOGO_SIZE, PANEL_HEIGHT as GRAB_PANEL_HEIGHT, PANEL_WIDTH as GRAB_PANEL_WIDTH, GrabWorker, MainWindow
 from sono_play_lite.ui import PANEL_HEIGHT, PANEL_WIDTH, SonoWindow
 from sono_play_lite.bpm import (
     SonoTrack,
@@ -84,6 +84,28 @@ def test_ui_collects_multiline_urls(monkeypatch) -> None:
         "https://example.com/a.mp4\n\nhttps://example.com/b.mp4\nhttps://example.com/a.mp4"
     )
     assert window._urls() == ["https://example.com/a.mp4", "https://example.com/b.mp4"]
+    window.close()
+    assert app is not None
+
+
+def test_grab_ui_is_compact_and_centered(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    window.resize(1000, 900)
+    app.processEvents()
+
+    root_rect = window.centralWidget().rect()
+    panel_rect = window.panel.geometry()
+
+    assert window.logo.width() == LOGO_SIZE
+    assert window.logo.height() == LOGO_SIZE
+    assert window.panel.width() == GRAB_PANEL_WIDTH
+    assert window.panel.height() == GRAB_PANEL_HEIGHT
+    assert abs(panel_rect.center().x() - root_rect.center().x()) <= 1
+    assert abs(panel_rect.center().y() - root_rect.center().y()) <= 1
+
     window.close()
     assert app is not None
 
