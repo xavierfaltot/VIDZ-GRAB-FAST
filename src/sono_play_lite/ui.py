@@ -279,7 +279,8 @@ class SonoWindow(QMainWindow):
             self._start_analysis()
 
     def _set_status(self, text: str) -> None:
-        self.setWindowTitle(APP_NAME)
+        status = (text or "READY").upper()
+        self.setWindowTitle(APP_NAME if status == "READY" else f"{APP_NAME} - {status}")
 
     def _start_analysis(self) -> None:
         if not self.folder_path:

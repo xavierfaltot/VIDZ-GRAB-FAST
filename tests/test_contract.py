@@ -218,3 +218,17 @@ def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
 
     window.close()
     assert app is not None
+
+
+def test_sndz_status_progress_uses_title_bar(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+
+    window._set_status("BPM 42%")
+    assert window.windowTitle() == "SNDZ PLAY MINI - BPM 42%"
+    window._set_status("READY")
+    assert window.windowTitle() == "SNDZ PLAY MINI"
+
+    window.close()
+    assert app is not None
