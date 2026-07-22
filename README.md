@@ -85,7 +85,7 @@ Supported inputs:
 mp3, wav, flac, aiff, aac, m4a, mp4
 ```
 
-This is a tiny mini player: logo folder pick, automatic BPM analysis, sorted queue, icon controls for play, next, stop, and automatic intro crossfade when the next track has a usable music intro. The only visible text in the player is the current track title. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
+This is a tiny mini player: logo folder pick, automatic BPM analysis, sorted queue, icon controls for play and next, and automatic intro crossfade when the next track has a usable music intro. Quit the app to stop playback. The only visible text in the player is the current track title. It does not tag, rewrite, normalize, beatmatch, or alter the source files.
 
 Run it with:
 

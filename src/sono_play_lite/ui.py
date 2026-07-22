@@ -3,8 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QProcess, QThread, QTimer, Qt, Signal
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import QObject, QPointF, QProcess, QThread, QTimer, Qt, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QPolygonF
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QPushButton,
     QSizePolicy,
-    QStyle,
     QVBoxLayout,
     QWidget,
 )
@@ -32,7 +31,9 @@ from .bpm import (
 
 APP_NAME = "SNDZ PLAY MINI"
 SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_mini_logo.png"
-TILE_SIZE = 88
+CONTROL_WIDTH = 170
+CONTROL_HEIGHT = 92
+LOGO_SIZE = 170
 
 
 class IndustrialPanel(QFrame):
@@ -48,6 +49,55 @@ class ClickableLogo(QLabel):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
+
+
+class TransportButton(QPushButton):
+    def __init__(self, mode: str, name: str) -> None:
+        super().__init__("")
+        self.mode = mode
+        self.setAccessibleName(name)
+        self.setToolTip(name)
+        self.setFixedSize(CONTROL_WIDTH, CONTROL_HEIGHT)
+
+    def paintEvent(self, event) -> None:  # noqa: ANN001
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        color = QColor("#c22922") if self.isEnabled() else QColor("#4c2b28")
+        painter.setBrush(color)
+        painter.setPen(QPen(QColor("#2a100e"), 2))
+
+        center_y = self.height() / 2
+        if self.mode == "play":
+            width = 46
+            height = 56
+            x_pos = (self.width() - width) / 2 + 4
+            painter.drawPolygon(
+                QPolygonF(
+                    [
+                        QPointF(x_pos, center_y - height / 2),
+                        QPointF(x_pos, center_y + height / 2),
+                        QPointF(x_pos + width, center_y),
+                    ]
+                )
+            )
+            return
+
+        width = 34
+        height = 48
+        gap = 6
+        start_x = (self.width() - (width * 2 + gap)) / 2
+        for offset in (0, width + gap):
+            x_pos = start_x + offset
+            painter.drawPolygon(
+                QPolygonF(
+                    [
+                        QPointF(x_pos, center_y - height / 2),
+                        QPointF(x_pos, center_y + height / 2),
+                        QPointF(x_pos + width, center_y),
+                    ]
+                )
+            )
 
 
 class AnalysisWorker(QObject):
@@ -78,7 +128,7 @@ class SonoWindow(QMainWindow):
         self.play_index = 0
         self.current_player: QProcess | None = None
         self.players: list[QProcess] = []
-        self.ffplay = "ffplay"
+        self.player_tool = "afplay"
         self.mix_timer = QTimer(self)
         self.mix_timer.setSingleShot(True)
         self.mix_timer.timeout.connect(self._auto_next_mix)
@@ -86,7 +136,7 @@ class SonoWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setFixedSize(330, 274)
+        self.setFixedSize(340, 492)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -104,36 +154,32 @@ class SonoWindow(QMainWindow):
         shell.addWidget(self.panel, alignment=Qt.AlignCenter)
 
         layout = QVBoxLayout(self.panel)
-        layout.setContentsMargins(14, 14, 14, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(18, 18, 18, 14)
+        layout.setSpacing(14)
 
-        self.logo = ClickableLogo("SNDZ\nPLAY\nLITE")
+        self.logo = ClickableLogo("SNDZ\nPLAY\nMINI")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
         self.logo.setCursor(Qt.PointingHandCursor)
         self.logo.clicked.connect(self._choose_folder)
-        self.logo.setFixedSize(TILE_SIZE, TILE_SIZE)
+        self.logo.setFixedSize(LOGO_SIZE, LOGO_SIZE)
         if SNDZ_LOGO_PATH.exists():
             pixmap = QPixmap(str(SNDZ_LOGO_PATH))
             self.logo.setPixmap(
-                pixmap.scaled(TILE_SIZE, TILE_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.scaled(LOGO_SIZE, LOGO_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
-        utility_controls = QHBoxLayout()
-        utility_controls.setSpacing(8)
-        self.play_button = self._icon_button("playButton", "PLAY", QStyle.SP_MediaPlay)
-        self.next_button = self._icon_button("nextButton", "NEXT", QStyle.SP_MediaSkipForward)
-        self.stop_button = self._icon_button("stopButton", "STOP", QStyle.SP_MediaStop)
+        utility_controls = QVBoxLayout()
+        utility_controls.setSpacing(12)
+        self.play_button = self._transport_button("playButton", "play", "PLAY")
+        self.next_button = self._transport_button("nextButton", "next", "NEXT")
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
         self.play_button.clicked.connect(self._start_playback)
         self.next_button.clicked.connect(self._next_track)
-        self.stop_button.clicked.connect(self._stop_playback)
-        utility_controls.addWidget(self.play_button)
-        utility_controls.addWidget(self.next_button)
-        utility_controls.addWidget(self.stop_button)
+        utility_controls.addWidget(self.play_button, alignment=Qt.AlignCenter)
+        utility_controls.addWidget(self.next_button, alignment=Qt.AlignCenter)
         layout.addLayout(utility_controls)
 
         self.current_title = QLabel("")
@@ -142,14 +188,9 @@ class SonoWindow(QMainWindow):
         self.current_title.setWordWrap(True)
         layout.addWidget(self.current_title)
 
-    def _icon_button(self, object_name: str, name: str, icon: QStyle.StandardPixmap) -> QPushButton:
-        button = QPushButton("")
+    def _transport_button(self, object_name: str, mode: str, name: str) -> TransportButton:
+        button = TransportButton(mode, name)
         button.setObjectName(object_name)
-        button.setAccessibleName(name)
-        button.setToolTip(name)
-        button.setFixedSize(TILE_SIZE, TILE_SIZE)
-        button.setIcon(self.style().standardIcon(icon))
-        button.setIconSize(button.size() * 0.56)
         return button
 
     def _apply_style(self) -> None:
@@ -160,8 +201,8 @@ class SonoWindow(QMainWindow):
             #panel {
                 min-width: 286px;
                 max-width: 310px;
-                min-height: 230px;
-                max-height: 254px;
+                min-height: 448px;
+                max-height: 468px;
                 border: 4px solid #35312b;
                 border-radius: 14px;
                 background: #11110f;
@@ -179,43 +220,33 @@ class SonoWindow(QMainWindow):
             }
             QPushButton {
                 color: #e7dfcf;
-                background: #181716;
-                border: 2px solid #343029;
-                border-radius: 6px;
+                background: #11100f;
+                border: 3px solid #2d2a25;
+                border-radius: 13px;
                 font-weight: 900;
             }
-            #playButton, #nextButton, #stopButton {
-                min-width: 88px;
-                max-width: 88px;
-                min-height: 88px;
-                max-height: 88px;
-                border-radius: 8px;
+            #playButton, #nextButton {
+                min-width: 170px;
+                max-width: 170px;
+                min-height: 92px;
+                max-height: 92px;
             }
             #playButton {
-                color: #050505;
-                background: #6f3ab2;
-                border: 2px solid #a97cff;
+                background: #151412;
+                border-color: #3d3932;
             }
             #nextButton {
-                color: #d8d0c0;
-                background: #211f1b;
-                border-color: #5a5146;
-            }
-            #stopButton {
-                color: #baaea0;
-                background: #11100f;
-                border-color: #3a332d;
+                background: #151412;
+                border-color: #3d3932;
             }
             #playButton:hover:!disabled {
-                background: #8451cf;
-                border-color: #c1a0ff;
+                border-color: #6d6155;
             }
             #playButton:pressed:!disabled {
-                background: #c53831;
-                border-color: #5c1b17;
+                background: #201412;
+                border-color: #85251f;
             }
             QPushButton:disabled {
-                color: #5f594f;
                 background: #0b0b0a;
                 border-color: #24211d;
             }
@@ -302,26 +333,27 @@ class SonoWindow(QMainWindow):
         if not self.tracks:
             self._set_status("NO TRACKS")
             return
-        ffplay = find_tool("ffplay")
-        if not ffplay:
-            self._set_status("NO FFPLAY")
+        player_tool = self._playback_tool()
+        if not player_tool:
+            self._set_status("NO PLAYER")
             self.current_title.setText("INSTALL FFMPEG")
             return
-        self.ffplay = ffplay
+        self.player_tool = player_tool
         self._stop_playback(reset_status=False)
         self.stop_requested = False
         self.play_index = 0
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(len(self.tracks) > 1)
-        self.stop_button.setEnabled(True)
         self._play_current(fade_in=False)
+
+    def _playback_tool(self) -> str | None:
+        return find_tool("afplay") or find_tool("ffplay")
 
     def _play_current(self, fade_in: bool) -> None:
         if self.play_index >= len(self.tracks):
             self.current_player = None
             self.play_button.setEnabled(True)
             self.next_button.setEnabled(False)
-            self.stop_button.setEnabled(False)
             self._set_status("DONE")
             return
 
@@ -331,9 +363,10 @@ class SonoWindow(QMainWindow):
         self.current_title.setText(self._track_title(track))
         player = QProcess(self)
         player.finished.connect(lambda *args, process=player: self._on_player_finished(process))
+        player.errorOccurred.connect(lambda _error, process=player: self._on_player_error(process))
         self.players.append(player)
         self.current_player = player
-        player.start(self.ffplay, self._ffplay_args(track, fade_in=fade_in, fade_out=fade_out))
+        player.start(self.player_tool, self._player_args(track, fade_in=fade_in, fade_out=fade_out))
 
         if fade_out and track.duration_seconds:
             self.mix_timer.start(max(1, int((track.duration_seconds - MIX_SECONDS) * 1000)))
@@ -348,7 +381,10 @@ class SonoWindow(QMainWindow):
             return False
         return bool(track.duration_seconds and track.duration_seconds >= MIN_MIX_DURATION_SECONDS)
 
-    def _ffplay_args(self, track: SonoTrack, fade_in: bool, fade_out: bool) -> list[str]:
+    def _player_args(self, track: SonoTrack, fade_in: bool, fade_out: bool) -> list[str]:
+        if Path(self.player_tool).name == "afplay":
+            return [str(track.path)]
+
         args = ["-nodisp", "-autoexit", "-loglevel", "quiet"]
         filters: list[str] = []
         if fade_in:
@@ -360,6 +396,12 @@ class SonoWindow(QMainWindow):
             args.extend(["-af", ",".join(filters)])
         args.append(str(track.path))
         return args
+
+    def _on_player_error(self, process: QProcess) -> None:
+        if process is self.current_player:
+            self.current_title.setText("PLAYER ERROR")
+            self.play_button.setEnabled(bool(self.tracks))
+            self.next_button.setEnabled(False)
 
     def _auto_next_mix(self) -> None:
         if self.stop_requested or self.play_index + 1 >= len(self.tracks):
@@ -392,7 +434,6 @@ class SonoWindow(QMainWindow):
             self._set_status("DONE")
             self.play_button.setEnabled(True)
             self.next_button.setEnabled(False)
-            self.stop_button.setEnabled(False)
             return
         self._play_current(fade_in=False)
 
@@ -403,7 +444,6 @@ class SonoWindow(QMainWindow):
         self.current_player = None
         self.play_button.setEnabled(bool(self.tracks))
         self.next_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
         if reset_status:
             self._set_status("READY")
 
