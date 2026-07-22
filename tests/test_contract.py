@@ -234,3 +234,29 @@ def test_sndz_status_progress_uses_title_bar(monkeypatch) -> None:
 
     window.close()
     assert app is not None
+
+
+def test_sndz_next_stays_enabled_until_last_track(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+    window.tracks = [
+        SonoTrack(tmp_path / "one.mp3", 90.0),
+        SonoTrack(tmp_path / "two.mp3", 100.0),
+        SonoTrack(tmp_path / "three.mp3", 110.0),
+    ]
+
+    window.play_index = 0
+    window._sync_transport_buttons(playing=True)
+    assert window.next_button.isEnabled()
+
+    window.play_index = 1
+    window._sync_transport_buttons(playing=True)
+    assert window.next_button.isEnabled()
+
+    window.play_index = 2
+    window._sync_transport_buttons(playing=True)
+    assert not window.next_button.isEnabled()
+
+    window.close()
+    assert app is not None

@@ -348,7 +348,6 @@ class SonoWindow(QMainWindow):
         self.stop_requested = False
         self.play_index = 0
         self.play_button.setEnabled(False)
-        self.next_button.setEnabled(len(self.tracks) > 1)
         self._play_current(fade_in=False)
 
     def _playback_tool(self) -> str | None:
@@ -364,6 +363,7 @@ class SonoWindow(QMainWindow):
 
         track = self.tracks[self.play_index]
         fade_out = self._should_auto_mix(track)
+        self._sync_transport_buttons(playing=True)
         self._set_status(f"PLAY {self.play_index + 1}/{len(self.tracks)}")
         self.current_title.setText(self._track_title(track))
         player = QProcess(self)
@@ -407,6 +407,13 @@ class SonoWindow(QMainWindow):
             self.current_title.setText("PLAYER ERROR")
             self.play_button.setEnabled(bool(self.tracks))
             self.next_button.setEnabled(False)
+
+    def _has_next_track(self) -> bool:
+        return self.play_index + 1 < len(self.tracks)
+
+    def _sync_transport_buttons(self, playing: bool) -> None:
+        self.play_button.setEnabled(bool(self.tracks) and not playing)
+        self.next_button.setEnabled(playing and self._has_next_track())
 
     def _auto_next_mix(self) -> None:
         if self.stop_requested or self.play_index + 1 >= len(self.tracks):
