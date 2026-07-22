@@ -264,3 +264,28 @@ def test_sndz_next_stays_enabled_until_last_track(monkeypatch, tmp_path) -> None
 
     window.close()
     assert app is not None
+
+
+def test_sndz_next_can_advance_multiple_times(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+    window.tracks = [
+        SonoTrack(tmp_path / "one.mp3", 90.0),
+        SonoTrack(tmp_path / "two.mp3", 100.0),
+        SonoTrack(tmp_path / "three.mp3", 110.0),
+    ]
+    played_indexes: list[int] = []
+
+    monkeypatch.setattr(window, "_kill_players", lambda: None)
+    monkeypatch.setattr(window, "_play_current", lambda fade_in: played_indexes.append(window.play_index))
+
+    window.play_index = 0
+    window._next_track()
+    window._next_track()
+
+    assert played_indexes == [1, 2]
+    assert window.play_index == 2
+
+    window.close()
+    assert app is not None

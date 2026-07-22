@@ -431,17 +431,25 @@ class SonoWindow(QMainWindow):
     def _next_track(self) -> None:
         if not self.tracks:
             return
+        next_index = self.play_index + 1
+        if next_index >= len(self.tracks):
+            self._finish_playback()
+            return
+
         self.mix_timer.stop()
-        self.play_index += 1
         self.stop_requested = True
         self._kill_players()
+        self.current_player = None
         self.stop_requested = False
-        if self.play_index >= len(self.tracks):
-            self._set_status("DONE")
-            self.play_button.setEnabled(True)
-            self.next_button.setEnabled(False)
-            return
+        self.play_index = next_index
         self._play_current(fade_in=False)
+
+    def _finish_playback(self) -> None:
+        self.mix_timer.stop()
+        self.current_player = None
+        self._set_status("DONE")
+        self.play_button.setEnabled(True)
+        self.next_button.setEnabled(False)
 
     def _stop_playback(self, reset_status: bool = True) -> None:
         self.stop_requested = True
@@ -455,9 +463,16 @@ class SonoWindow(QMainWindow):
 
     def _kill_players(self) -> None:
         for player in list(self.players):
+            try:
+                player.finished.disconnect()
+                player.errorOccurred.disconnect()
+            except (RuntimeError, TypeError):
+                pass
             if player.state() != QProcess.NotRunning:
-                player.kill()
-                player.waitForFinished(1500)
+                player.terminate()
+                if not player.waitForFinished(250):
+                    player.kill()
+                    player.waitForFinished(1500)
             if player in self.players:
                 self.players.remove(player)
             player.deleteLater()
