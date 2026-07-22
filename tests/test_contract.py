@@ -18,7 +18,14 @@ from vidz_grab_fast.grabber import (
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
-from vidz_grab_fast.ui import LOGO_SIZE, PANEL_HEIGHT as GRAB_PANEL_HEIGHT, PANEL_WIDTH as GRAB_PANEL_WIDTH, GrabWorker, MainWindow
+from vidz_grab_fast.ui import (
+    DOWNLOADS_PER_RUN,
+    LOGO_SIZE,
+    PANEL_HEIGHT as GRAB_PANEL_HEIGHT,
+    PANEL_WIDTH as GRAB_PANEL_WIDTH,
+    GrabWorker,
+    MainWindow,
+)
 from sono_play_lite.ui import PANEL_HEIGHT, PANEL_WIDTH, SonoWindow
 from sono_play_lite.bpm import (
     SonoTrack,
@@ -287,6 +294,43 @@ def test_worker_keeps_direct_video_failure_as_error(monkeypatch, tmp_path) -> No
     worker.run()
 
     assert finished == [(0, 1, 0, 0, ["1: HTTP Error 500"], [])]
+
+
+def test_worker_downloads_next_stable_batch_after_existing_items(monkeypatch, tmp_path) -> None:
+    finished: list[tuple[int, int, int, int, list[str], list[str]]] = []
+    downloaded: list[str] = []
+    urls = [f"https://www.youtube.com/watch?v=video{index:03d}" for index in range(250)]
+
+    for index, url in enumerate(urls[:DOWNLOADS_PER_RUN]):
+        video = tmp_path / f"existing_{index:03d}.mp4"
+        video.write_bytes(b"")
+        write_source_json(video, SourceRecord(source_url=url, clean_filename=video.name))
+
+    def fake_expand(url: str, max_items: int) -> list[str]:
+        assert max_items == MAX_BATCH_ITEMS
+        return urls
+
+    def fake_grab(request, progress):  # noqa: ANN001
+        downloaded.append(request.source_url)
+        progress("DONE", 100)
+
+    monkeypatch.setattr("vidz_grab_fast.ui.expand_source_url", fake_expand)
+    monkeypatch.setattr("vidz_grab_fast.ui.grab", fake_grab)
+
+    worker = GrabWorker(
+        output_dir=tmp_path,
+        artist_account="",
+        urls=["https://youtube.com/playlist?list=PL123"],
+    )
+    worker.finished.connect(
+        lambda ok, err, skip, failed_skip, errors, failed_errors: finished.append(
+            (ok, err, skip, failed_skip, errors, failed_errors)
+        )
+    )
+    worker.run()
+
+    assert downloaded == urls[DOWNLOADS_PER_RUN : DOWNLOADS_PER_RUN * 2]
+    assert finished == [(DOWNLOADS_PER_RUN, 0, DOWNLOADS_PER_RUN, 0, [], [])]
 
 
 def test_finished_with_only_failed_playlist_skips_is_error(monkeypatch) -> None:

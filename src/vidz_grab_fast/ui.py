@@ -36,6 +36,7 @@ PANEL_WIDTH = 430
 PANEL_HEIGHT = 672
 WINDOW_WIDTH = 520
 WINDOW_HEIGHT = 740
+DOWNLOADS_PER_RUN = 100
 
 
 class IndustrialPanel(QFrame):
@@ -66,11 +67,10 @@ class GrabWorker(QObject):
         failed_skip_errors: list[str] = []
         for url in self.input_urls:
             from_playlist = is_playlist_url(url)
-            remaining = MAX_BATCH_ITEMS - len(pending)
-            if remaining <= 0:
+            if len(pending) >= DOWNLOADS_PER_RUN:
                 break
             try:
-                expanded_urls = expand_source_url(url, remaining)
+                expanded_urls = expand_source_url(url, MAX_BATCH_ITEMS)
             except GrabError as exc:
                 if from_playlist:
                     errors.append(f"LIST: {exc}")
@@ -84,7 +84,7 @@ class GrabWorker(QObject):
                     skipped_count += 1
                     continue
                 pending.append((expanded_url, from_playlist))
-                if len(pending) >= MAX_BATCH_ITEMS:
+                if len(pending) >= DOWNLOADS_PER_RUN:
                     break
 
         if not pending:
