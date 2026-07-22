@@ -31,9 +31,7 @@ from .bpm import (
 
 APP_NAME = "SNDZ PLAY MINI"
 SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_mini_logo.png"
-CONTROL_WIDTH = 170
-CONTROL_HEIGHT = 92
-LOGO_SIZE = 170
+TILE_SIZE = 170
 
 
 class IndustrialPanel(QFrame):
@@ -57,7 +55,7 @@ class TransportButton(QPushButton):
         self.mode = mode
         self.setAccessibleName(name)
         self.setToolTip(name)
-        self.setFixedSize(CONTROL_WIDTH, CONTROL_HEIGHT)
+        self.setFixedSize(TILE_SIZE, TILE_SIZE)
 
     def paintEvent(self, event) -> None:  # noqa: ANN001
         super().paintEvent(event)
@@ -69,8 +67,8 @@ class TransportButton(QPushButton):
 
         center_y = self.height() / 2
         if self.mode == "play":
-            width = 46
-            height = 56
+            width = 62
+            height = 76
             x_pos = (self.width() - width) / 2 + 4
             painter.drawPolygon(
                 QPolygonF(
@@ -83,9 +81,9 @@ class TransportButton(QPushButton):
             )
             return
 
-        width = 34
-        height = 48
-        gap = 6
+        width = 46
+        height = 66
+        gap = 8
         start_x = (self.width() - (width * 2 + gap)) / 2
         for offset in (0, width + gap):
             x_pos = start_x + offset
@@ -136,7 +134,7 @@ class SonoWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setFixedSize(340, 492)
+        self.setFixedSize(340, 650)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -162,11 +160,11 @@ class SonoWindow(QMainWindow):
         self.logo.setAlignment(Qt.AlignCenter)
         self.logo.setCursor(Qt.PointingHandCursor)
         self.logo.clicked.connect(self._choose_folder)
-        self.logo.setFixedSize(LOGO_SIZE, LOGO_SIZE)
+        self.logo.setFixedSize(TILE_SIZE, TILE_SIZE)
         if SNDZ_LOGO_PATH.exists():
             pixmap = QPixmap(str(SNDZ_LOGO_PATH))
             self.logo.setPixmap(
-                pixmap.scaled(LOGO_SIZE, LOGO_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pixmap.scaled(TILE_SIZE, TILE_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
@@ -201,10 +199,10 @@ class SonoWindow(QMainWindow):
             #panel {
                 min-width: 286px;
                 max-width: 310px;
-                min-height: 448px;
-                max-height: 468px;
+                min-height: 606px;
+                max-height: 626px;
                 border: 4px solid #35312b;
-                border-radius: 14px;
+                border-radius: 0px;
                 background: #11110f;
             }
             QLabel {
@@ -222,14 +220,14 @@ class SonoWindow(QMainWindow):
                 color: #e7dfcf;
                 background: #11100f;
                 border: 3px solid #2d2a25;
-                border-radius: 13px;
+                border-radius: 0px;
                 font-weight: 900;
             }
             #playButton, #nextButton {
                 min-width: 170px;
                 max-width: 170px;
-                min-height: 92px;
-                max-height: 92px;
+                min-height: 170px;
+                max-height: 170px;
             }
             #playButton {
                 background: #151412;

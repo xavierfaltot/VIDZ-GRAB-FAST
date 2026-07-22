@@ -213,6 +213,8 @@ def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
     assert not hasattr(window, "stop_button")
     assert window.play_button.width() == window.logo.width()
     assert window.next_button.width() == window.logo.width()
+    assert window.play_button.height() == window.logo.height()
+    assert window.next_button.height() == window.logo.height()
     assert window.findChildren(QLineEdit) == []
     assert window.findChildren(QListWidget) == []
 
