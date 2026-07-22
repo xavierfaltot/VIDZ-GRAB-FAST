@@ -466,10 +466,19 @@ class MainWindow(QMainWindow):
     def _urls(self) -> list[str]:
         urls: list[str] = []
         seen: set[str] = set()
+        current = ""
         for line in self.url_input.toPlainText().splitlines():
-            url = line.strip()
-            if not url or url in seen:
+            value = line.strip()
+            if not value:
                 continue
-            seen.add(url)
-            urls.append(url)
+            if value.startswith(("http://", "https://")):
+                if current and current not in seen:
+                    seen.add(current)
+                    urls.append(current)
+                current = value
+            elif current:
+                current = f"{current}{value}"
+        if current and current not in seen:
+            seen.add(current)
+            urls.append(current)
         return urls

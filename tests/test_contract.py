@@ -88,6 +88,25 @@ def test_ui_collects_multiline_urls(monkeypatch) -> None:
     assert app is not None
 
 
+def test_ui_rejoins_wrapped_long_url_lines(monkeypatch) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = MainWindow()
+    window.url_input.setPlainText(
+        "https://youtube.com/playlist?list=PLYfzPRVpLUq6Z_2riYs-\n"
+        "rouU3XICpE5aF&si=_tssHWr8K4Wy6yII\n"
+        "https://example.com/video.mp4"
+    )
+
+    assert window._urls() == [
+        "https://youtube.com/playlist?list=PLYfzPRVpLUq6Z_2riYs-rouU3XICpE5aF&si=_tssHWr8K4Wy6yII",
+        "https://example.com/video.mp4",
+    ]
+
+    window.close()
+    assert app is not None
+
+
 def test_grab_ui_is_compact_and_centered(monkeypatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     app = QApplication.instance() or QApplication(sys.argv)
