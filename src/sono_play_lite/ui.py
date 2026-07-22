@@ -275,6 +275,7 @@ class SonoWindow(QMainWindow):
             self.tracks = []
             self.play_button.setEnabled(False)
             self.next_button.setEnabled(False)
+            self.current_title.setText("SCANNING")
             self._start_analysis()
 
     def _set_status(self, text: str) -> None:
@@ -288,7 +289,7 @@ class SonoWindow(QMainWindow):
         self.logo.setEnabled(False)
         self.play_button.setEnabled(False)
         self.next_button.setEnabled(False)
-        self.current_title.setText("")
+        self.current_title.setText("SCANNING")
         self._set_status("BPM 0%")
 
         self.thread = QThread()
@@ -307,6 +308,7 @@ class SonoWindow(QMainWindow):
 
     def _on_progress(self, message: str, percent: int) -> None:
         self._set_status(f"{message} {percent}%")
+        self.current_title.setText(f"SCANNING {percent}%")
 
     def _on_finished(self, tracks: list[SonoTrack], errors: list[str]) -> None:
         self.logo.setEnabled(True)
@@ -315,7 +317,10 @@ class SonoWindow(QMainWindow):
         self.next_button.setEnabled(False)
         self._set_status("READY")
         self.current_title.setToolTip("\n".join(errors[:12]) if errors else "")
-        self.current_title.setText("")
+        if self.tracks:
+            self.current_title.setText("READY")
+        else:
+            self.current_title.setText("NO AUDIO")
 
     def _on_failed(self, message: str) -> None:
         self.logo.setEnabled(True)
@@ -332,6 +337,7 @@ class SonoWindow(QMainWindow):
     def _start_playback(self) -> None:
         if not self.tracks:
             self._set_status("NO TRACKS")
+            self.current_title.setText("NO TRACKS")
             return
         player_tool = self._playback_tool()
         if not player_tool:
