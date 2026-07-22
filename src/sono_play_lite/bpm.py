@@ -16,11 +16,14 @@ SONO_VERSION = "1.0"
 SAMPLE_RATE = 11025
 WINDOW_SAMPLES = 1024
 HOP_SAMPLES = 512
+ENERGY_FRAME_SECONDS = HOP_SAMPLES / SAMPLE_RATE
 MIN_BPM = 60
 MAX_BPM = 190
 MAX_ANALYSIS_SECONDS = 120
-INTRO_ANALYSIS_SECONDS = 18
+INTRO_ANALYSIS_SECONDS = 32
+OUTRO_ANALYSIS_SECONDS = 32
 MIX_SECONDS = 8.0
+MAX_MIX_SECONDS = 28.0
 MIN_MIX_DURATION_SECONDS = 24.0
 SUPPORTED_AUDIO_EXTENSIONS = {
     ".aac",
@@ -51,6 +54,8 @@ class SonoTrack:
     bpm: float | None
     duration_seconds: float | None = None
     mixable_intro: bool = False
+    mixable_intro_seconds: float = 0.0
+    mixable_outro_seconds: float = 0.0
 
 
 Estimator = Callable[[Path], float | None]
@@ -210,12 +215,44 @@ def is_mixable_intro_from_energies(energies: list[float]) -> bool:
     return active_ratio >= 0.35 and mean_energy >= 0.08 and peak_energy >= 0.22
 
 
+def mixable_region_seconds_from_energies(energies: list[float], *, from_start: bool = True) -> float:
+    if not energies:
+        return 0.0
+    best = 0.0
+    max_seconds = int(min(MAX_MIX_SECONDS, len(energies) * ENERGY_FRAME_SECONDS))
+    for seconds in range(int(MIX_SECONDS), max_seconds + 1, 4):
+        frame_count = max(12, int(seconds / ENERGY_FRAME_SECONDS))
+        candidate = energies[:frame_count] if from_start else energies[-frame_count:]
+        if is_mixable_intro_from_energies(candidate):
+            best = float(seconds)
+    return best
+
+
 def has_mixable_intro(path: Path) -> bool:
     try:
         pcm = decode_audio_pcm(path, max_seconds=INTRO_ANALYSIS_SECONDS)
     except SonoError:
         return False
     return is_mixable_intro_from_energies(energy_envelope(pcm))
+
+
+def mixable_intro_seconds(path: Path) -> float:
+    try:
+        pcm = decode_audio_pcm(path, max_seconds=INTRO_ANALYSIS_SECONDS)
+    except SonoError:
+        return 0.0
+    return mixable_region_seconds_from_energies(energy_envelope(pcm), from_start=True)
+
+
+def mixable_outro_seconds(path: Path, duration_seconds: float | None) -> float:
+    if not duration_seconds or duration_seconds <= MIX_SECONDS:
+        return 0.0
+    start_seconds = max(0.0, duration_seconds - OUTRO_ANALYSIS_SECONDS)
+    try:
+        pcm = decode_audio_pcm(path, max_seconds=OUTRO_ANALYSIS_SECONDS, start_seconds=start_seconds)
+    except SonoError:
+        return 0.0
+    return mixable_region_seconds_from_energies(energy_envelope(pcm), from_start=False)
 
 
 def sort_tracks_by_bpm(tracks: list[SonoTrack]) -> list[SonoTrack]:
@@ -247,18 +284,22 @@ def analyze_folder(
         try:
             bpm = estimator(path)
             duration = probe_duration_seconds(path)
-            mixable_intro = has_mixable_intro(path)
+            intro_seconds = mixable_intro_seconds(path)
+            outro_seconds = mixable_outro_seconds(path, duration)
         except SonoError as exc:
             bpm = None
             duration = None
-            mixable_intro = False
+            intro_seconds = 0.0
+            outro_seconds = 0.0
             errors.append(f"{path.name}: {exc}")
         tracks.append(
             SonoTrack(
                 path=path,
                 bpm=bpm,
                 duration_seconds=duration,
-                mixable_intro=mixable_intro,
+                mixable_intro=intro_seconds >= MIX_SECONDS,
+                mixable_intro_seconds=intro_seconds,
+                mixable_outro_seconds=outro_seconds,
             )
         )
         if progress:

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from vidz_grab_fast.ui import LOGO_PATH
 
 from .bpm import (
+    MAX_MIX_SECONDS,
     MIN_MIX_DURATION_SECONDS,
     MIX_SECONDS,
     SonoError,
@@ -132,6 +133,7 @@ class SonoWindow(QMainWindow):
         self.current_player: QProcess | None = None
         self.players: list[QProcess] = []
         self.player_tool = "afplay"
+        self.next_fade_in_seconds = MIX_SECONDS
         self.mix_timer = QTimer(self)
         self.mix_timer.setSingleShot(True)
         self.mix_timer.timeout.connect(self._auto_next_mix)
@@ -359,7 +361,8 @@ class SonoWindow(QMainWindow):
             return
 
         track = self.tracks[self.play_index]
-        fade_out = self._should_auto_mix(track)
+        mix_seconds = self._transition_mix_seconds(track)
+        fade_out = mix_seconds > 0
         self._sync_transport_buttons(playing=True)
         self._set_status(f"PLAY {self.play_index + 1}/{len(self.tracks)}")
         self.current_title.setText(self._track_title(track))
@@ -368,32 +371,67 @@ class SonoWindow(QMainWindow):
         player.errorOccurred.connect(lambda _error, process=player: self._on_player_error(process))
         self.players.append(player)
         self.current_player = player
-        player.start(self.player_tool, self._player_args(track, fade_in=fade_in, fade_out=fade_out))
+        player.start(
+            self.player_tool,
+            self._player_args(
+                track,
+                fade_in=fade_in,
+                fade_out=fade_out,
+                mix_seconds=self.next_fade_in_seconds if fade_in else mix_seconds,
+            ),
+        )
 
         if fade_out and track.duration_seconds:
-            self.mix_timer.start(max(1, int((track.duration_seconds - MIX_SECONDS) * 1000)))
+            self.next_fade_in_seconds = mix_seconds
+            self.mix_timer.start(max(1, int((track.duration_seconds - mix_seconds) * 1000)))
         else:
+            self.next_fade_in_seconds = MIX_SECONDS
             self.mix_timer.stop()
 
-    def _should_auto_mix(self, track: SonoTrack) -> bool:
+    def _transition_mix_seconds(self, track: SonoTrack) -> float:
         next_index = self.play_index + 1
         if next_index >= len(self.tracks):
-            return False
-        if not self.tracks[next_index].mixable_intro:
-            return False
-        return bool(track.duration_seconds and track.duration_seconds >= MIN_MIX_DURATION_SECONDS)
+            return 0.0
+        next_track = self.tracks[next_index]
+        if not track.duration_seconds or track.duration_seconds < MIN_MIX_DURATION_SECONDS:
+            return 0.0
+        if next_track.mixable_intro_seconds < MIX_SECONDS:
+            return 0.0
 
-    def _player_args(self, track: SonoTrack, fade_in: bool, fade_out: bool) -> list[str]:
+        outro_seconds = track.mixable_outro_seconds if track.mixable_outro_seconds >= MIX_SECONDS else MIX_SECONDS
+        available_seconds = min(outro_seconds, next_track.mixable_intro_seconds, MAX_MIX_SECONDS)
+        if available_seconds < MIX_SECONDS:
+            return 0.0
+
+        if track.bpm is None or next_track.bpm is None:
+            return MIX_SECONDS if available_seconds < 16.0 else min(16.0, available_seconds)
+
+        bpm_gap = abs(track.bpm - next_track.bpm)
+        if bpm_gap <= 3.0:
+            return available_seconds
+        if bpm_gap <= 6.0:
+            return min(20.0, available_seconds)
+        if available_seconds >= 16.0:
+            return 16.0
+        return MIX_SECONDS
+
+    def _player_args(
+        self,
+        track: SonoTrack,
+        fade_in: bool,
+        fade_out: bool,
+        mix_seconds: float,
+    ) -> list[str]:
         if Path(self.player_tool).name == "afplay":
             return [str(track.path)]
 
         args = ["-nodisp", "-autoexit", "-loglevel", "quiet"]
         filters: list[str] = []
         if fade_in:
-            filters.append(f"afade=t=in:st=0:d={MIX_SECONDS:g}")
+            filters.append(f"afade=t=in:st=0:d={mix_seconds:g}")
         if fade_out and track.duration_seconds:
-            start = max(0.0, track.duration_seconds - MIX_SECONDS)
-            filters.append(f"afade=t=out:st={start:.3f}:d={MIX_SECONDS:g}")
+            start = max(0.0, track.duration_seconds - mix_seconds)
+            filters.append(f"afade=t=out:st={start:.3f}:d={mix_seconds:g}")
         if filters:
             args.extend(["-af", ",".join(filters)])
         args.append(str(track.path))

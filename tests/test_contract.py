@@ -18,6 +18,7 @@ from sono_play_lite.bpm import (
     find_tool,
     find_audio_files,
     is_mixable_intro_from_energies,
+    mixable_region_seconds_from_energies,
     sort_tracks_by_bpm,
 )
 
@@ -196,6 +197,11 @@ def test_sono_mixable_intro_energy_gate() -> None:
     assert not is_mixable_intro_from_energies([0.0] * 20 + [0.9])
 
 
+def test_sono_measures_long_mixable_regions() -> None:
+    assert mixable_region_seconds_from_energies([0.3] * 700) >= 28.0
+    assert mixable_region_seconds_from_energies([0.0] * 700) == 0.0
+
+
 def test_sono_tool_lookup_returns_none_for_missing_tool() -> None:
     assert find_tool("sndz_missing_tool_for_test") is None
 
@@ -309,6 +315,54 @@ def test_sndz_next_can_advance_multiple_times(monkeypatch, tmp_path) -> None:
 
     assert played_indexes == [1, 2]
     assert window.play_index == 2
+
+    window.close()
+    assert app is not None
+
+
+def test_sndz_uses_long_mix_for_similar_bpm_and_long_regions(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication(sys.argv)
+    window = SonoWindow()
+    window.tracks = [
+        SonoTrack(
+            tmp_path / "one.mp3",
+            120.0,
+            duration_seconds=240.0,
+            mixable_intro_seconds=8.0,
+            mixable_outro_seconds=28.0,
+        ),
+        SonoTrack(
+            tmp_path / "two.mp3",
+            122.0,
+            duration_seconds=240.0,
+            mixable_intro=True,
+            mixable_intro_seconds=28.0,
+            mixable_outro_seconds=28.0,
+        ),
+    ]
+
+    assert window._transition_mix_seconds(window.tracks[0]) == 28.0
+
+    window.tracks[1] = SonoTrack(
+        tmp_path / "two.mp3",
+        138.0,
+        duration_seconds=240.0,
+        mixable_intro=True,
+        mixable_intro_seconds=28.0,
+        mixable_outro_seconds=28.0,
+    )
+    assert window._transition_mix_seconds(window.tracks[0]) == 16.0
+
+    window.tracks[1] = SonoTrack(
+        tmp_path / "two.mp3",
+        122.0,
+        duration_seconds=240.0,
+        mixable_intro=True,
+        mixable_intro_seconds=4.0,
+        mixable_outro_seconds=28.0,
+    )
+    assert window._transition_mix_seconds(window.tracks[0]) == 0.0
 
     window.close()
     assert app is not None
