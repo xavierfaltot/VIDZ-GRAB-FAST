@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from urllib.parse import parse_qs, urlparse
 
 from .filenames import clean_filename_stem, unique_mp4_path
 from .platforms import detect_platform
@@ -79,6 +80,12 @@ def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[
     return urls or [parent_url]
 
 
+def is_playlist_url(source_url: str) -> bool:
+    parsed = urlparse(source_url.strip())
+    query = parse_qs(parsed.query)
+    return "list" in query or "/playlist" in parsed.path
+
+
 def existing_source_urls(output_dir: Path) -> set[str]:
     root = output_dir.expanduser()
     if not root.exists() or not root.is_dir():
@@ -124,6 +131,8 @@ def expand_source_url(source_url: str, max_items: int = MAX_BATCH_ITEMS) -> list
     except Exception as exc:  # noqa: BLE001
         raise GrabError(str(exc)) from exc
     if not isinstance(info, dict):
+        if is_playlist_url(url):
+            raise GrabError("Playlist not found or not public")
         return [url]
     return _source_urls_from_info(info, url, max_items)
 
@@ -191,6 +200,9 @@ def grab_url(request: GrabRequest, progress: ProgressCallback | None = None) -> 
         raise GrabError("yt-dlp is not installed") from exc
 
     url = request.source_url.strip()
+    if is_playlist_url(url):
+        raise GrabError("Playlist could not be expanded; check that it is public and copied correctly")
+
     platform = detect_platform(url)
     latest_percent = {"value": 5}
 

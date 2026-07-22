@@ -18,7 +18,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .grabber import MAX_BATCH_ITEMS, GrabError, GrabRequest, existing_source_urls, expand_source_url, grab
+from .grabber import (
+    MAX_BATCH_ITEMS,
+    GrabError,
+    GrabRequest,
+    existing_source_urls,
+    expand_source_url,
+    grab,
+    is_playlist_url,
+)
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
@@ -32,7 +40,7 @@ class IndustrialPanel(QFrame):
 
 class GrabWorker(QObject):
     progress = Signal(str, int)
-    finished = Signal(int, int, int)
+    finished = Signal(int, int, int, object)
     failed = Signal(str)
 
     def __init__(self, output_dir: Path, artist_account: str, urls: list[str]) -> None:
@@ -44,6 +52,7 @@ class GrabWorker(QObject):
     def run(self) -> None:
         self.progress.emit("LIST", 1)
         urls: list[str] = []
+        errors: list[str] = []
         seen: set[str] = set()
         grabbed = existing_source_urls(self.output_dir)
         skipped_count = 0
@@ -53,7 +62,10 @@ class GrabWorker(QObject):
                 break
             try:
                 expanded_urls = expand_source_url(url, remaining)
-            except GrabError:
+            except GrabError as exc:
+                if is_playlist_url(url):
+                    errors.append(f"LIST: {exc}")
+                    continue
                 expanded_urls = [url]
             for expanded_url in expanded_urls:
                 if expanded_url in seen:
@@ -67,13 +79,15 @@ class GrabWorker(QObject):
                     break
 
         if not urls:
+            if errors:
+                self.failed.emit(errors[0])
+                return
             if skipped_count:
-                self.finished.emit(0, 0, skipped_count)
+                self.finished.emit(0, 0, skipped_count, [])
             else:
                 self.failed.emit("No URL provided")
             return
 
-        errors: list[str] = []
         total = len(urls)
         for index, url in enumerate(urls, start=1):
             request = GrabRequest(
@@ -93,7 +107,7 @@ class GrabWorker(QObject):
                 errors.append(f"{index}: {exc}")
                 self.progress.emit(f"SKIP {index}/{total}", int((index / total) * 100))
 
-        self.finished.emit(total - len(errors), len(errors), skipped_count)
+        self.finished.emit(total - len(errors), len(errors), skipped_count, errors)
 
 
 class MainWindow(QMainWindow):
@@ -398,22 +412,34 @@ class MainWindow(QMainWindow):
     def _on_progress(self, message: str, percent: int) -> None:
         self._set_status(f"{message} {percent}%")
 
-    def _on_finished(self, success_count: int, error_count: int, skipped_count: int) -> None:
+    def _on_finished(
+        self,
+        success_count: int,
+        error_count: int,
+        skipped_count: int,
+        errors: list[str],
+    ) -> None:
         self.grab_button.setEnabled(True)
         if error_count:
             self._set_status("DONE ERR")
             summary = f"{success_count} OK / {error_count} ERR"
+            if errors:
+                self.footer.setText(errors[0].upper()[:110])
+                self.footer.setToolTip("\n".join(errors))
+                return
         else:
             self._set_status("DONE")
             summary = f"{success_count} OK"
         if skipped_count:
             summary = f"{summary} / {skipped_count} SKIP"
         self.footer.setText(summary)
+        self.footer.setToolTip("")
 
     def _on_failed(self, message: str) -> None:
         self.grab_button.setEnabled(True)
         self._set_status("ERROR")
-        self.footer.setText(message.upper()[:80])
+        self.footer.setText(message.upper()[:110])
+        self.footer.setToolTip(message)
         self.status.setToolTip(message)
 
     def _clear_worker(self) -> None:

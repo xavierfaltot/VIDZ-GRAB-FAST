@@ -6,11 +6,11 @@ import sys
 from PySide6.QtWidgets import QApplication, QLineEdit, QListWidget
 
 from vidz_grab_fast.filenames import clean_filename_stem
-from vidz_grab_fast.grabber import MAX_BATCH_ITEMS, _source_urls_from_info, existing_source_urls
+from vidz_grab_fast.grabber import MAX_BATCH_ITEMS, GrabError, _source_urls_from_info, existing_source_urls, is_playlist_url
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
-from vidz_grab_fast.ui import MainWindow
+from vidz_grab_fast.ui import GrabWorker, MainWindow
 from sono_play_lite.ui import PANEL_HEIGHT, PANEL_WIDTH, SonoWindow
 from sono_play_lite.bpm import (
     SonoTrack,
@@ -112,6 +112,35 @@ def test_large_playlist_limit_supports_500_tracks() -> None:
     assert len(urls) == 500
     assert urls[0] == "https://www.youtube.com/watch?v=video-000"
     assert urls[-1] == "https://www.youtube.com/watch?v=video-499"
+
+
+def test_playlist_url_detection() -> None:
+    assert is_playlist_url("https://youtube.com/playlist?list=PL123")
+    assert is_playlist_url("https://www.youtube.com/watch?v=abc&list=PL123")
+    assert not is_playlist_url("https://www.youtube.com/watch?v=abc")
+
+
+def test_playlist_expansion_failure_does_not_download_playlist_url(monkeypatch, tmp_path) -> None:
+    failures: list[str] = []
+
+    def fail_expand(url: str, max_items: int) -> list[str]:
+        raise GrabError("Playlist not found or not public")
+
+    def fail_if_called(*args, **kwargs):  # noqa: ANN002, ANN003
+        raise AssertionError("playlist URL should not be downloaded directly")
+
+    monkeypatch.setattr("vidz_grab_fast.ui.expand_source_url", fail_expand)
+    monkeypatch.setattr("vidz_grab_fast.ui.grab", fail_if_called)
+
+    worker = GrabWorker(
+        output_dir=tmp_path,
+        artist_account="",
+        urls=["https://youtube.com/playlist?list=PL404"],
+    )
+    worker.failed.connect(failures.append)
+    worker.run()
+
+    assert failures == ["LIST: Playlist not found or not public"]
 
 
 def test_existing_source_urls_supports_resume_without_duplicates(tmp_path) -> None:
