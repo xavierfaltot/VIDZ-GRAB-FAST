@@ -12,6 +12,7 @@ from .probe import verify_media
 from .provenance import SourceRecord, utc_download_date, write_source_json
 
 ProgressCallback = Callable[[str, int], None]
+MAX_BATCH_ITEMS = 150
 
 
 class GrabError(RuntimeError):
@@ -43,6 +44,68 @@ def _safe_info_value(info: dict, *keys: str) -> str:
         if isinstance(value, str) and value.strip():
             return value.strip()
     return ""
+
+
+def _entry_source_url(entry: dict, parent_url: str) -> str:
+    for key in ("webpage_url", "url"):
+        value = entry.get(key)
+        if isinstance(value, str) and value.startswith(("http://", "https://")):
+            return value
+
+    video_id = _safe_info_value(entry, "id", "url")
+    if video_id and detect_platform(parent_url) == "youtube":
+        return f"https://www.youtube.com/watch?v={video_id}"
+    return ""
+
+
+def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[str]:
+    entries = info.get("entries")
+    if entries is None or isinstance(entries, (str, bytes)):
+        return [parent_url]
+
+    urls: list[str] = []
+    seen: set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        source_url = _entry_source_url(entry, parent_url)
+        if not source_url or source_url in seen:
+            continue
+        seen.add(source_url)
+        urls.append(source_url)
+        if len(urls) >= max_items:
+            break
+    return urls or [parent_url]
+
+
+def expand_source_url(source_url: str, max_items: int = MAX_BATCH_ITEMS) -> list[str]:
+    url = source_url.strip()
+    if not url:
+        return []
+
+    try:
+        import yt_dlp
+    except ImportError as exc:
+        raise GrabError("yt-dlp is not installed") from exc
+
+    options = {
+        "cachedir": False,
+        "extract_flat": "in_playlist",
+        "ignoreerrors": True,
+        "no_warnings": True,
+        "noplaylist": False,
+        "playlistend": max_items,
+        "quiet": True,
+        "skip_download": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(options) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception as exc:  # noqa: BLE001
+        raise GrabError(str(exc)) from exc
+    if not isinstance(info, dict):
+        return [url]
+    return _source_urls_from_info(info, url, max_items)
 
 
 def _finalize(source: Path, target: Path) -> None:

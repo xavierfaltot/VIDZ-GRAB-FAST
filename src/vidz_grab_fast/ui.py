@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .grabber import GrabError, GrabRequest, grab
+from .grabber import MAX_BATCH_ITEMS, GrabError, GrabRequest, expand_source_url, grab
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
@@ -39,12 +39,35 @@ class GrabWorker(QObject):
         super().__init__()
         self.output_dir = output_dir
         self.artist_account = artist_account
-        self.urls = urls
+        self.input_urls = urls
 
     def run(self) -> None:
+        self.progress.emit("LIST", 1)
+        urls: list[str] = []
+        seen: set[str] = set()
+        for url in self.input_urls:
+            remaining = MAX_BATCH_ITEMS - len(urls)
+            if remaining <= 0:
+                break
+            try:
+                expanded_urls = expand_source_url(url, remaining)
+            except GrabError:
+                expanded_urls = [url]
+            for expanded_url in expanded_urls:
+                if expanded_url in seen:
+                    continue
+                seen.add(expanded_url)
+                urls.append(expanded_url)
+                if len(urls) >= MAX_BATCH_ITEMS:
+                    break
+
+        if not urls:
+            self.failed.emit("No URL provided")
+            return
+
         errors: list[str] = []
-        total = len(self.urls)
-        for index, url in enumerate(self.urls, start=1):
+        total = len(urls)
+        for index, url in enumerate(urls, start=1):
             request = GrabRequest(
                 output_dir=self.output_dir,
                 artist_account=self.artist_account,
@@ -337,7 +360,7 @@ class MainWindow(QMainWindow):
         if not urls:
             self._set_status("NO SOURCE")
             return
-        if len(urls) > 150:
+        if len(urls) > MAX_BATCH_ITEMS:
             self._set_status("150 MAX")
             self.footer.setText(f"{len(urls)} URLS")
             return

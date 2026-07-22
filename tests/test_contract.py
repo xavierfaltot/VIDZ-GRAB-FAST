@@ -6,6 +6,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from vidz_grab_fast.filenames import clean_filename_stem
+from vidz_grab_fast.grabber import _source_urls_from_info
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.ui import MainWindow
@@ -67,3 +68,25 @@ def test_ui_collects_multiline_urls(monkeypatch) -> None:
     assert window._urls() == ["https://example.com/a.mp4", "https://example.com/b.mp4"]
     window.close()
     assert app is not None
+
+
+def test_playlist_info_expands_to_video_urls() -> None:
+    info = {
+        "entries": [
+            {"id": "aaa111"},
+            {"url": "https://www.youtube.com/watch?v=bbb222"},
+            {"id": "aaa111"},
+        ]
+    }
+    assert _source_urls_from_info(info, "https://www.youtube.com/playlist?list=PL123", 150) == [
+        "https://www.youtube.com/watch?v=aaa111",
+        "https://www.youtube.com/watch?v=bbb222",
+    ]
+
+
+def test_playlist_expansion_respects_limit() -> None:
+    info = {"entries": [{"id": "one"}, {"id": "two"}, {"id": "three"}]}
+    assert _source_urls_from_info(info, "https://www.youtube.com/playlist?list=PL123", 2) == [
+        "https://www.youtube.com/watch?v=one",
+        "https://www.youtube.com/watch?v=two",
+    ]

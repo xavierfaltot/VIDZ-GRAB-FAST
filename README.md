@@ -23,7 +23,7 @@ python run.py
 
 Or double-click `VIDZ GRAB FAST.command` after dependencies have been installed once. The desktop UI is intentionally limited to URLS, artist name, output folder, and GRAB.
 
-Paste one URL per line. The app accepts up to 150 URLs in one run. Pressing Enter inside URLS adds a new line; only the GRAB button starts acquisition.
+Paste one URL per line. YouTube playlists are expanded into individual videos before download. The app accepts up to 150 videos in one run. Pressing Enter inside URLS adds a new line; only the GRAB button starts acquisition.
 
 To create or refresh the macOS desktop app:
 
