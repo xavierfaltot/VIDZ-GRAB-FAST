@@ -46,7 +46,7 @@ class IndustrialPanel(QFrame):
 
 class GrabWorker(QObject):
     progress = Signal(str, int)
-    finished = Signal(int, int, int, object)
+    finished = Signal(int, int, int, int, object)
     failed = Signal(str)
 
     def __init__(self, output_dir: Path, artist_account: str, urls: list[str]) -> None:
@@ -57,19 +57,21 @@ class GrabWorker(QObject):
 
     def run(self) -> None:
         self.progress.emit("LIST", 1)
-        urls: list[str] = []
+        pending: list[tuple[str, bool]] = []
         errors: list[str] = []
         seen: set[str] = set()
         grabbed = existing_source_urls(self.output_dir)
         skipped_count = 0
+        failed_skip_count = 0
         for url in self.input_urls:
-            remaining = MAX_BATCH_ITEMS - len(urls)
+            from_playlist = is_playlist_url(url)
+            remaining = MAX_BATCH_ITEMS - len(pending)
             if remaining <= 0:
                 break
             try:
                 expanded_urls = expand_source_url(url, remaining)
             except GrabError as exc:
-                if is_playlist_url(url):
+                if from_playlist:
                     errors.append(f"LIST: {exc}")
                     continue
                 expanded_urls = [url]
@@ -80,23 +82,23 @@ class GrabWorker(QObject):
                 if expanded_url in grabbed:
                     skipped_count += 1
                     continue
-                urls.append(expanded_url)
-                if len(urls) >= MAX_BATCH_ITEMS:
+                pending.append((expanded_url, from_playlist))
+                if len(pending) >= MAX_BATCH_ITEMS:
                     break
 
-        if not urls:
+        if not pending:
             if errors:
                 self.failed.emit(errors[0])
                 return
             if skipped_count:
-                self.finished.emit(0, 0, skipped_count, [])
+                self.finished.emit(0, 0, skipped_count, failed_skip_count, [])
             else:
                 self.failed.emit("No URL provided")
             return
 
         success_count = 0
-        total = len(urls)
-        for index, url in enumerate(urls, start=1):
+        total = len(pending)
+        for index, (url, from_playlist) in enumerate(pending, start=1):
             request = GrabRequest(
                 output_dir=self.output_dir,
                 artist_account=self.artist_account,
@@ -112,13 +114,13 @@ class GrabWorker(QObject):
                 grab(request, item_progress)
                 success_count += 1
             except (GrabError, OSError, RuntimeError) as exc:
-                if is_unavailable_error(exc):
-                    skipped_count += 1
+                if from_playlist or is_unavailable_error(exc):
+                    failed_skip_count += 1
                 else:
                     errors.append(f"{index}: {exc}")
                 self.progress.emit(f"SKIP {index}/{total}", int((index / total) * 100))
 
-        self.finished.emit(success_count, len(errors), skipped_count, errors)
+        self.finished.emit(success_count, len(errors), skipped_count, failed_skip_count, errors)
 
 
 class MainWindow(QMainWindow):
@@ -425,6 +427,7 @@ class MainWindow(QMainWindow):
         success_count: int,
         error_count: int,
         skipped_count: int,
+        failed_skip_count: int,
         errors: list[str],
     ) -> None:
         self.grab_button.setEnabled(True)
@@ -435,11 +438,17 @@ class MainWindow(QMainWindow):
                 self.footer.setText(errors[0].upper()[:110])
                 self.footer.setToolTip("\n".join(errors))
                 return
+        elif failed_skip_count and success_count == 0:
+            self._set_status("ERROR")
+            self.footer.setText(f"0 OK / {failed_skip_count} FAILED SKIP")
+            self.footer.setToolTip("All playlist videos failed. Check the URL, network, or YouTube access.")
+            return
         else:
             self._set_status("DONE")
             summary = f"{success_count} OK"
-        if skipped_count:
-            summary = f"{summary} / {skipped_count} SKIP"
+        total_skipped = skipped_count + failed_skip_count
+        if total_skipped:
+            summary = f"{summary} / {total_skipped} SKIP"
         self.footer.setText(summary)
         self.footer.setToolTip("")
 
