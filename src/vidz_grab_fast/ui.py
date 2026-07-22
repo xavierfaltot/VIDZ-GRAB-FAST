@@ -33,9 +33,9 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
 LOGO_SIZE = 170
 PANEL_WIDTH = 430
-PANEL_HEIGHT = 632
+PANEL_HEIGHT = 672
 WINDOW_WIDTH = 520
-WINDOW_HEIGHT = 700
+WINDOW_HEIGHT = 740
 
 
 class IndustrialPanel(QFrame):
@@ -229,6 +229,12 @@ class MainWindow(QMainWindow):
         self.footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.footer)
 
+        self.detail = QLabel("")
+        self.detail.setObjectName("detail")
+        self.detail.setAlignment(Qt.AlignCenter)
+        self.detail.setWordWrap(True)
+        layout.addWidget(self.detail)
+
         for screw_name in ("screwTL", "screwTR", "screwBL", "screwBR"):
             screw = QLabel("+", self.panel)
             screw.setObjectName(screw_name)
@@ -365,6 +371,14 @@ class MainWindow(QMainWindow):
                 font-size: 11px;
                 font-weight: 900;
             }
+            #detail {
+                min-height: 34px;
+                max-height: 34px;
+                color: #9f988d;
+                font-family: "Courier New", monospace;
+                font-size: 10px;
+                font-weight: 900;
+            }
             #screwTL, #screwTR, #screwBL, #screwBR {
                 color: #070707;
                 background: #2c2a26;
@@ -397,11 +411,14 @@ class MainWindow(QMainWindow):
         if len(urls) > MAX_BATCH_ITEMS:
             self._set_status(f"{MAX_BATCH_ITEMS} MAX")
             self.footer.setText(f"{len(urls)} URLS")
+            self.detail.setText("")
             return
 
         self.grab_button.setEnabled(False)
         self._set_status("GRAB 0%")
         self.footer.setText(f"ACQUIRING {len(urls)} URLS")
+        self.detail.setText("")
+        self.detail.setToolTip("")
 
         self.thread = QThread()
         self.worker = GrabWorker(
@@ -438,17 +455,19 @@ class MainWindow(QMainWindow):
             self._set_status("DONE ERR")
             summary = f"{success_count} OK / {error_count} ERR"
             if errors:
-                self.footer.setText(errors[0].upper()[:110])
-                self.footer.setToolTip("\n".join(errors))
+                self.footer.setText(summary)
+                self.detail.setText(errors[0].upper()[:140])
+                self.detail.setToolTip("\n".join(errors))
                 return
         elif failed_skip_count and success_count == 0:
             self._set_status("ERROR")
+            self.footer.setText(f"0 OK / {failed_skip_count} FAILED SKIP")
             if failed_skip_errors:
-                self.footer.setText(failed_skip_errors[0].upper()[:110])
-                self.footer.setToolTip("\n".join(failed_skip_errors[:30]))
+                self.detail.setText(failed_skip_errors[0].upper()[:140])
+                self.detail.setToolTip("\n".join(failed_skip_errors[:30]))
             else:
-                self.footer.setText(f"0 OK / {failed_skip_count} FAILED SKIP")
-                self.footer.setToolTip("All playlist videos failed. Check the URL, network, or YouTube access.")
+                self.detail.setText("NO ERROR DETAIL RETURNED BY YT-DLP")
+                self.detail.setToolTip("All playlist videos failed, but yt-dlp did not return individual error details.")
             return
         else:
             self._set_status("DONE")
@@ -458,12 +477,15 @@ class MainWindow(QMainWindow):
             summary = f"{summary} / {total_skipped} SKIP"
         self.footer.setText(summary)
         self.footer.setToolTip("")
+        self.detail.setText("")
+        self.detail.setToolTip("")
 
     def _on_failed(self, message: str) -> None:
         self.grab_button.setEnabled(True)
         self._set_status("ERROR")
-        self.footer.setText(message.upper()[:110])
-        self.footer.setToolTip(message)
+        self.footer.setText("ERROR")
+        self.detail.setText(message.upper()[:140])
+        self.detail.setToolTip(message)
         self.status.setToolTip(message)
 
     def _clear_worker(self) -> None:

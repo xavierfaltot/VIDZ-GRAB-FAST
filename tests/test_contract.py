@@ -290,6 +290,7 @@ def test_finished_with_only_failed_playlist_skips_is_error(monkeypatch) -> None:
 
     assert window.status.text() == "ERROR"
     assert window.footer.text() == "0 OK / 3 FAILED SKIP"
+    assert window.detail.text() == "NO ERROR DETAIL RETURNED BY YT-DLP"
 
     window.close()
     assert app is not None
@@ -303,7 +304,8 @@ def test_finished_with_only_failed_playlist_skips_shows_first_error(monkeypatch)
     window._on_finished(0, 0, 0, 88, [], ["1: Sign in to confirm you are not a bot"])
 
     assert window.status.text() == "ERROR"
-    assert window.footer.text() == "1: SIGN IN TO CONFIRM YOU ARE NOT A BOT"
+    assert window.footer.text() == "0 OK / 88 FAILED SKIP"
+    assert window.detail.text() == "1: SIGN IN TO CONFIRM YOU ARE NOT A BOT"
 
     window.close()
     assert app is not None
