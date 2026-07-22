@@ -16,6 +16,7 @@ from .provenance import SourceRecord, utc_download_date, write_source_json
 ProgressCallback = Callable[[str, int], None]
 MAX_BATCH_ITEMS = 600
 COOKIES_FILE = Path(__file__).resolve().parents[2] / "VIDZ_COOKIES.txt"
+DOWNLOAD_MEDIA_EXTENSIONS = {".mp4", ".mov", ".m4v", ".mkv", ".webm"}
 UNAVAILABLE_AVAILABILITY_VALUES = {
     "needs_auth",
     "premium_only",
@@ -58,6 +59,15 @@ def ytdlp_options(extra: dict | None = None) -> dict:
     if extra:
         options.update(extra)
     return options
+
+
+def ffmpeg_location() -> str | None:
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:  # noqa: BLE001
+        return shutil.which("ffmpeg")
 
 
 def _emit(progress: ProgressCallback | None, message: str, percent: int) -> None:
@@ -221,11 +231,14 @@ def grab_local_file(request: GrabRequest, progress: ProgressCallback | None = No
     return GrabResult(video_path=target, source_path=source_path)
 
 
-def _find_downloaded_mp4(tmpdir: Path) -> Path:
-    mp4s = sorted(tmpdir.glob("*.mp4"))
-    if not mp4s:
-        raise GrabError("yt-dlp did not produce an mp4 file")
-    return max(mp4s, key=lambda path: path.stat().st_mtime)
+def _find_downloaded_media(no_ext: Path) -> Path | None:
+    mp4_path = no_ext.with_suffix(".mp4")
+    if mp4_path.exists():
+        return mp4_path
+
+    matches = sorted(no_ext.parent.glob(f"{no_ext.name}.*"))
+    media = [path for path in matches if path.suffix.lower() in DOWNLOAD_MEDIA_EXTENSIONS]
+    return media[0] if media else None
 
 
 def grab_url(request: GrabRequest, progress: ProgressCallback | None = None) -> GrabResult:
@@ -260,7 +273,18 @@ def grab_url(request: GrabRequest, progress: ProgressCallback | None = None) -> 
 
     with tempfile.TemporaryDirectory(prefix="vidz_grab_fast_") as temp_name:
         tmpdir = Path(temp_name)
-        outtmpl = str(tmpdir / "download.%(ext)s")
+        no_ext = tmpdir / "download"
+        outtmpl = str(no_ext.with_suffix(".%(ext)s"))
+
+        try:
+            with yt_dlp.YoutubeDL(ytdlp_options({"noplaylist": True})) as ydl:
+                info = ydl.extract_info(url, download=False)
+        except Exception as exc:  # noqa: BLE001
+            raise GrabError(str(exc)) from exc
+        if not isinstance(info, dict):
+            info = {}
+
+        ffmpeg = ffmpeg_location()
         options = ytdlp_options({
             "format": "bv*+ba/b",
             "fragment_retries": 3,
@@ -272,13 +296,21 @@ def grab_url(request: GrabRequest, progress: ProgressCallback | None = None) -> 
             "restrictfilenames": False,
             "retries": 3,
         })
+        if ffmpeg:
+            options["ffmpeg_location"] = ffmpeg
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
-                info = ydl.extract_info(url, download=True)
+                ydl.download([url])
         except Exception as exc:  # noqa: BLE001
             raise GrabError(str(exc)) from exc
 
-        downloaded = _find_downloaded_mp4(tmpdir)
+        downloaded = _find_downloaded_media(no_ext)
+        if downloaded is None:
+            raise GrabError("Download finished but no video file was created")
+        if downloaded.suffix.lower() != ".mp4":
+            if not ffmpeg:
+                raise GrabError("ffmpeg not found; MP4 remux could not run")
+            raise GrabError("yt-dlp did not produce an mp4 file")
         verify_media(downloaded)
 
         title = _safe_info_value(info, "title")

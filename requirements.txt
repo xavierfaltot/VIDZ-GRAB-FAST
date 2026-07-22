@@ -1,3 +1,4 @@
 PySide6-Essentials>=6.7
 yt-dlp>=2025.6.9
+imageio-ffmpeg>=0.4.9
 pytest>=8.0
