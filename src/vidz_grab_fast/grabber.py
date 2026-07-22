@@ -15,6 +15,7 @@ from .provenance import SourceRecord, utc_download_date, write_source_json
 
 ProgressCallback = Callable[[str, int], None]
 MAX_BATCH_ITEMS = 600
+COOKIES_FILE = Path(__file__).resolve().parents[2] / "VIDZ_COOKIES.txt"
 UNAVAILABLE_AVAILABILITY_VALUES = {
     "needs_auth",
     "premium_only",
@@ -48,6 +49,15 @@ class GrabRequest:
 class GrabResult:
     video_path: Path
     source_path: Path
+
+
+def ytdlp_options(extra: dict | None = None) -> dict:
+    options = {"quiet": True, "no_warnings": True, "cachedir": False}
+    if COOKIES_FILE.exists():
+        options["cookiefile"] = str(COOKIES_FILE)
+    if extra:
+        options.update(extra)
+    return options
 
 
 def _emit(progress: ProgressCallback | None, message: str, percent: int) -> None:
@@ -146,16 +156,13 @@ def expand_source_url(source_url: str, max_items: int = MAX_BATCH_ITEMS) -> list
     except ImportError as exc:
         raise GrabError("yt-dlp is not installed") from exc
 
-    options = {
-        "cachedir": False,
+    options = ytdlp_options({
         "extract_flat": "in_playlist",
         "ignoreerrors": True,
-        "no_warnings": True,
         "noplaylist": False,
         "playlistend": max_items,
-        "quiet": True,
         "skip_download": True,
-    }
+    })
     try:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -254,17 +261,17 @@ def grab_url(request: GrabRequest, progress: ProgressCallback | None = None) -> 
     with tempfile.TemporaryDirectory(prefix="vidz_grab_fast_") as temp_name:
         tmpdir = Path(temp_name)
         outtmpl = str(tmpdir / "download.%(ext)s")
-        options = {
-            "cachedir": False,
-            "format": "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best[ext=mp4]/best",
+        options = ytdlp_options({
+            "format": "bv*+ba/b",
+            "fragment_retries": 3,
             "merge_output_format": "mp4",
             "noplaylist": True,
-            "no_warnings": True,
             "outtmpl": outtmpl,
+            "postprocessors": [{"key": "FFmpegVideoRemuxer", "preferedformat": "mp4"}],
             "progress_hooks": [hook],
-            "quiet": True,
             "restrictfilenames": False,
-        }
+            "retries": 3,
+        })
         try:
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(url, download=True)

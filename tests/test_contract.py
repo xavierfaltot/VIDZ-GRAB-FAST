@@ -13,6 +13,7 @@ from vidz_grab_fast.grabber import (
     existing_source_urls,
     is_unavailable_error,
     is_playlist_url,
+    ytdlp_options,
 )
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
@@ -42,6 +43,13 @@ def test_platform_detection_supported_sources() -> None:
     assert detect_platform("https://x.com/account/status/1") == "x"
     assert detect_platform("https://fb.watch/abc") == "facebook"
     assert detect_platform("https://example.com/video.mp4") == "direct_mp4"
+
+
+def test_grab_uses_legacy_compatible_ytdlp_video_format() -> None:
+    options = ytdlp_options({"format": "bv*+ba/b"})
+
+    assert options["format"] == "bv*+ba/b"
+    assert options["cachedir"] is False
 
 
 def test_source_json_contract(tmp_path) -> None:
