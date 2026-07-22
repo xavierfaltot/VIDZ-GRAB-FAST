@@ -204,6 +204,8 @@ def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     app = QApplication.instance() or QApplication(sys.argv)
     window = SonoWindow()
+    window.show()
+    app.processEvents()
 
     assert window.windowTitle() == "SNDZ PLAY MINI"
     assert window.play_button.text() == ""
@@ -215,6 +217,8 @@ def test_sndz_ui_is_logo_driven_and_minimal(monkeypatch) -> None:
     assert window.next_button.width() == window.logo.width()
     assert window.play_button.height() == window.logo.height()
     assert window.next_button.height() == window.logo.height()
+    assert window.play_button.y() == window.next_button.y()
+    assert window.play_button.x() < window.next_button.x()
     assert window.findChildren(QLineEdit) == []
     assert window.findChildren(QListWidget) == []
 

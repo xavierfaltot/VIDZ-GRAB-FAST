@@ -134,7 +134,7 @@ class SonoWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         if SNDZ_LOGO_PATH.exists():
             self.setWindowIcon(QIcon(str(SNDZ_LOGO_PATH)))
-        self.setFixedSize(340, 650)
+        self.setFixedSize(430, 476)
         self._build_ui()
         self._apply_style()
         self._set_status("READY")
@@ -168,7 +168,7 @@ class SonoWindow(QMainWindow):
             )
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
 
-        utility_controls = QVBoxLayout()
+        utility_controls = QHBoxLayout()
         utility_controls.setSpacing(12)
         self.play_button = self._transport_button("playButton", "play", "PLAY")
         self.next_button = self._transport_button("nextButton", "next", "NEXT")
@@ -197,10 +197,10 @@ class SonoWindow(QMainWindow):
             * { font-family: "Arial Narrow", "Arial", "Helvetica", sans-serif; }
             #root { background: #050505; }
             #panel {
-                min-width: 286px;
-                max-width: 310px;
-                min-height: 606px;
-                max-height: 626px;
+                min-width: 376px;
+                max-width: 400px;
+                min-height: 432px;
+                max-height: 452px;
                 border: 4px solid #35312b;
                 border-radius: 0px;
                 background: #11110f;
@@ -222,12 +222,6 @@ class SonoWindow(QMainWindow):
                 border: 3px solid #2d2a25;
                 border-radius: 0px;
                 font-weight: 900;
-            }
-            #playButton, #nextButton {
-                min-width: 170px;
-                max-width: 170px;
-                min-height: 170px;
-                max-height: 170px;
             }
             #playButton {
                 background: #151412;
