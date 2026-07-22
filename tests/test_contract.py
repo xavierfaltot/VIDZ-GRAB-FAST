@@ -14,6 +14,7 @@ from vidz_grab_fast.ui import MainWindow
 from sono_play_lite.bpm import (
     SonoTrack,
     analyze_folder,
+    find_tool,
     find_audio_files,
     is_mixable_intro_from_energies,
     sort_tracks_by_bpm,
@@ -192,3 +193,7 @@ def test_sono_mixable_intro_energy_gate() -> None:
     assert is_mixable_intro_from_energies([0.3] * 24)
     assert not is_mixable_intro_from_energies([0.0] * 24)
     assert not is_mixable_intro_from_energies([0.0] * 20 + [0.9])
+
+
+def test_sono_tool_lookup_returns_none_for_missing_tool() -> None:
+    assert find_tool("sndz_missing_tool_for_test") is None

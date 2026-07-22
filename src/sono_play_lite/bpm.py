@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import warnings
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -31,6 +32,13 @@ SUPPORTED_AUDIO_EXTENSIONS = {
     ".mp4",
     ".wav",
 }
+TOOL_DIRS = (
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/opt/local/bin",
+    "/usr/bin",
+    "/bin",
+)
 
 
 class SonoError(RuntimeError):
@@ -49,10 +57,21 @@ Estimator = Callable[[Path], float | None]
 ProgressCallback = Callable[[str, int], None]
 
 
-def require_tool(name: str) -> str:
+def find_tool(name: str) -> str | None:
     tool = shutil.which(name)
+    if tool:
+        return tool
+    for folder in TOOL_DIRS:
+        candidate = Path(folder) / name
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def require_tool(name: str) -> str:
+    tool = find_tool(name)
     if not tool:
-        raise SonoError(f"{name} not found on PATH")
+        raise SonoError(f"{name} not found")
     return tool
 
 

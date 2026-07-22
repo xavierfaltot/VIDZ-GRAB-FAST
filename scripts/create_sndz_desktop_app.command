@@ -31,6 +31,7 @@ cat > "$APP_DIR/Contents/MacOS/$APP_NAME" <<SCRIPT
 #!/bin/zsh
 set -e
 cd "$REPO_DIR"
+export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/local/bin:/usr/bin:/bin:\$PATH"
 if [ ! -x ".venv/bin/python" ]; then
   python3 -m venv .venv
 fi

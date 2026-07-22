@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -23,7 +22,14 @@ from PySide6.QtWidgets import (
 
 from vidz_grab_fast.ui import LOGO_PATH
 
-from .bpm import MIN_MIX_DURATION_SECONDS, MIX_SECONDS, SonoError, SonoTrack, analyze_folder
+from .bpm import (
+    MIN_MIX_DURATION_SECONDS,
+    MIX_SECONDS,
+    SonoError,
+    SonoTrack,
+    analyze_folder,
+    find_tool,
+)
 
 SNDZ_LOGO_PATH = LOGO_PATH.parent / "sndz_play_lite_logo.png"
 
@@ -61,6 +67,7 @@ class SonoWindow(QMainWindow):
         self.play_index = 0
         self.current_player: QProcess | None = None
         self.players: list[QProcess] = []
+        self.ffplay = "ffplay"
         self.mix_timer = QTimer(self)
         self.mix_timer.setSingleShot(True)
         self.mix_timer.timeout.connect(self._auto_next_mix)
@@ -130,24 +137,29 @@ class SonoWindow(QMainWindow):
         self.track_list.setMinimumHeight(260)
         layout.addWidget(self.track_list, 1)
 
-        controls = QHBoxLayout()
-        controls.setSpacing(14)
+        utility_controls = QHBoxLayout()
+        utility_controls.setSpacing(14)
         self.analyze_button = QPushButton("BPM")
-        self.play_button = QPushButton("PLAY")
         self.next_button = QPushButton("NEXT")
         self.stop_button = QPushButton("STOP")
-        self.play_button.setEnabled(False)
+        self.analyze_button.setObjectName("utilityButton")
+        self.next_button.setObjectName("nextButton")
+        self.stop_button.setObjectName("stopButton")
         self.next_button.setEnabled(False)
         self.stop_button.setEnabled(False)
         self.analyze_button.clicked.connect(self._start_analysis)
-        self.play_button.clicked.connect(self._start_playback)
         self.next_button.clicked.connect(self._next_track)
         self.stop_button.clicked.connect(self._stop_playback)
-        controls.addWidget(self.analyze_button)
-        controls.addWidget(self.play_button)
-        controls.addWidget(self.next_button)
-        controls.addWidget(self.stop_button)
-        layout.addLayout(controls)
+        utility_controls.addWidget(self.analyze_button)
+        utility_controls.addWidget(self.next_button)
+        utility_controls.addWidget(self.stop_button)
+        layout.addLayout(utility_controls)
+
+        self.play_button = QPushButton("PLAY")
+        self.play_button.setObjectName("playButton")
+        self.play_button.setEnabled(False)
+        self.play_button.clicked.connect(self._start_playback)
+        layout.addWidget(self.play_button)
 
         self.footer = QLabel("LOW BPM TO HIGH BPM / AUTO MIX")
         self.footer.setObjectName("footer")
@@ -233,17 +245,48 @@ class SonoWindow(QMainWindow):
                 color: #050505;
             }
             QPushButton {
-                min-height: 58px;
                 color: #e7dfcf;
                 background: #181716;
                 border: 2px solid #343029;
                 border-radius: 6px;
-                font-size: 20px;
                 font-weight: 900;
+            }
+            #utilityButton, #nextButton, #stopButton {
+                min-height: 48px;
+                font-size: 18px;
+            }
+            #nextButton {
+                color: #d8d0c0;
+                background: #211f1b;
+                border-color: #5a5146;
+            }
+            #stopButton {
+                color: #baaea0;
+                background: #11100f;
+                border-color: #3a332d;
+            }
+            #playButton {
+                min-height: 96px;
+                margin-top: 2px;
+                color: #050505;
+                background: #6f3ab2;
+                border: 2px solid #a97cff;
+                border-radius: 8px;
+                font-size: 46px;
+                font-weight: 900;
+            }
+            #playButton:hover:!disabled {
+                background: #8451cf;
+                border-color: #c1a0ff;
+            }
+            #playButton:pressed:!disabled {
+                background: #c53831;
+                border-color: #5c1b17;
             }
             QPushButton:disabled {
                 color: #5f594f;
                 background: #0b0b0a;
+                border-color: #24211d;
             }
             QPushButton:hover:!disabled {
                 border-color: #6b6256;
@@ -310,8 +353,15 @@ class SonoWindow(QMainWindow):
         self._render_tracks()
         self.play_button.setEnabled(bool(self.tracks))
         self.next_button.setEnabled(False)
-        self._set_status("READY" if not errors else "PARTIAL")
-        self.footer.setText(f"{len(self.tracks)} TRACKS / {len(errors)} ERR")
+        self._set_status("READY")
+        bpm_count = sum(1 for track in self.tracks if track.bpm is not None)
+        summary = f"{bpm_count} BPM / {len(self.tracks)} TRACKS"
+        if errors:
+            summary = f"{summary} / {len(errors)} SKIP"
+            self.footer.setToolTip("\n".join(errors[:12]))
+        else:
+            self.footer.setToolTip("")
+        self.footer.setText(summary)
 
     def _on_failed(self, message: str) -> None:
         self.analyze_button.setEnabled(True)
@@ -333,10 +383,12 @@ class SonoWindow(QMainWindow):
         if not self.tracks:
             self._set_status("NO TRACKS")
             return
-        if not shutil.which("ffplay"):
+        ffplay = find_tool("ffplay")
+        if not ffplay:
             self._set_status("NO FFPLAY")
             self.footer.setText("INSTALL FFMPEG")
             return
+        self.ffplay = ffplay
         self._stop_playback(reset_status=False)
         self.stop_requested = False
         self.play_index = 0
@@ -363,7 +415,7 @@ class SonoWindow(QMainWindow):
         player.finished.connect(lambda *args, process=player: self._on_player_finished(process))
         self.players.append(player)
         self.current_player = player
-        player.start("ffplay", self._ffplay_args(track, fade_in=fade_in, fade_out=fade_out))
+        player.start(self.ffplay, self._ffplay_args(track, fade_in=fade_in, fade_out=fade_out))
 
         if fade_out and track.duration_seconds:
             self.mix_timer.start(max(1, int((track.duration_seconds - MIX_SECONDS) * 1000)))
