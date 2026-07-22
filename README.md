@@ -39,6 +39,40 @@ That creates `~/Desktop/VIDZ GRAB FAST.app`.
 brew install ffmpeg
 ```
 
+## Audio Companion
+
+Direct MP3 download is technically simpler if the only goal is audio. For the VIDZ/RUSH chain, the cleaner production rule is:
+
+```text
+VIDZ GRAB FAST  -> acquire MP4 master + provenance
+VIDZ AUDIO FAST -> derive MP3 from that MP4
+```
+
+This keeps GRAB impossible to confuse with SCAN, FLTR, PLAY, or any editing tool. GRAB still only acquires video and preserves origin. VIDZ AUDIO FAST is a separate utility that converts a folder of `.mp4` files into:
+
+```text
+clean_name.mp3
+clean_name.audio.source.json
+```
+
+The audio source JSON embeds the original `.source.json` when it exists. It does not analyze, tag, scan, transcribe, or rename by AI.
+
+Run the audio companion with:
+
+```bash
+python run_audio.py
+```
+
+Or double-click `VIDZ AUDIO FAST.command`.
+
+To create or refresh the macOS desktop app:
+
+```bash
+./scripts/create_audio_desktop_app.command
+```
+
+That creates `~/Desktop/VIDZ AUDIO FAST.app`.
+
 ## Contract
 
 URL imports use `yt-dlp` with cache disabled and download into a temporary system folder first. Only the final `.mp4` and `.source.json` are moved into the chosen destination.

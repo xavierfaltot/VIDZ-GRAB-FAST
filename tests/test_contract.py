@@ -9,6 +9,7 @@ from vidz_grab_fast.filenames import clean_filename_stem
 from vidz_grab_fast.grabber import _source_urls_from_info
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
+from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
 from vidz_grab_fast.ui import MainWindow
 
 
@@ -90,3 +91,32 @@ def test_playlist_expansion_respects_limit() -> None:
         "https://www.youtube.com/watch?v=one",
         "https://www.youtube.com/watch?v=two",
     ]
+
+
+def test_audio_source_json_preserves_grab_source(tmp_path) -> None:
+    video = tmp_path / "clip.mp4"
+    mp3 = tmp_path / "clip.mp3"
+    video.write_bytes(b"")
+    mp3.write_bytes(b"")
+    source = {
+        "id": "abc123",
+        "artist": "Artist",
+        "account": "artist",
+        "platform": "youtube",
+        "source_url": "https://youtu.be/abc123",
+        "download_date": "2026-07-15T15:21:16Z",
+        "grab_version": "1.0",
+        "original_filename": "",
+        "clean_filename": "clip.mp4",
+    }
+    video.with_suffix(".source.json").write_text(json.dumps(source), encoding="utf-8")
+
+    audio_source = write_audio_source_json(mp3, video, "320k")
+    data = json.loads(audio_source.read_text(encoding="utf-8"))
+
+    assert audio_source == audio_source_json_path(mp3)
+    assert audio_source.name == "clip.audio.source.json"
+    assert data["derived_from_video"] == "clip.mp4"
+    assert data["audio_filename"] == "clip.mp3"
+    assert data["bitrate"] == "320k"
+    assert data["source"]["id"] == "abc123"
