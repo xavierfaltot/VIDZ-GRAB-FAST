@@ -11,6 +11,7 @@ from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
 from vidz_grab_fast.ui import MainWindow
+from sono_play_lite.bpm import SonoTrack, analyze_folder, find_audio_files, sort_tracks_by_bpm
 
 
 def test_clean_filename_is_ascii_lowercase_snake_case() -> None:
@@ -120,3 +121,37 @@ def test_audio_source_json_preserves_grab_source(tmp_path) -> None:
     assert data["audio_filename"] == "clip.mp3"
     assert data["bitrate"] == "320k"
     assert data["source"]["id"] == "abc123"
+
+
+def test_sono_finds_supported_audio_recursively(tmp_path) -> None:
+    (tmp_path / "a.mp3").write_bytes(b"")
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "b.wav").write_bytes(b"")
+    (nested / "skip.txt").write_text("no", encoding="utf-8")
+
+    assert [path.name for path in find_audio_files(tmp_path)] == ["a.mp3", "b.wav"]
+
+
+def test_sono_sorts_from_low_bpm_to_high_bpm(tmp_path) -> None:
+    slow = SonoTrack(tmp_path / "slow.mp3", 82.0)
+    fast = SonoTrack(tmp_path / "fast.mp3", 132.0)
+    unknown = SonoTrack(tmp_path / "unknown.mp3", None)
+    mid = SonoTrack(tmp_path / "mid.mp3", 108.0)
+
+    assert sort_tracks_by_bpm([unknown, fast, slow, mid]) == [slow, mid, fast, unknown]
+
+
+def test_sono_analyze_folder_uses_estimator_and_sorts(tmp_path) -> None:
+    for name in ("c.mp3", "a.mp3", "b.mp3"):
+        (tmp_path / name).write_bytes(b"")
+    bpms = {"a.mp3": 128.0, "b.mp3": 90.0, "c.mp3": 110.0}
+
+    tracks, errors = analyze_folder(tmp_path, estimator=lambda path: bpms[path.name])
+
+    assert errors == []
+    assert [(track.path.name, track.bpm) for track in tracks] == [
+        ("b.mp3", 90.0),
+        ("c.mp3", 110.0),
+        ("a.mp3", 128.0),
+    ]

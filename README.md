@@ -73,6 +73,34 @@ To create or refresh the macOS desktop app:
 
 That creates `~/Desktop/VIDZ AUDIO FAST.app`.
 
+## SONO PLAY LITE
+
+SONO PLAY LITE is the light playback companion for audio folders. Choose a sound folder, press `BPM`, then press `PLAY`. The app analyzes local audio tempo and plays the list from lowest BPM to highest BPM, so the energy climbs.
+
+Supported inputs:
+
+```text
+mp3, wav, flac, aiff, aac, m4a, mp4
+```
+
+This is a lite player: BPM analysis, sorted queue, sequential playback. It does not tag, rewrite, normalize, beatmatch, crossfade, or alter the source files.
+
+Run it with:
+
+```bash
+python run_sono.py
+```
+
+Or double-click `SONO PLAY LITE.command`.
+
+To create or refresh the macOS desktop app:
+
+```bash
+./scripts/create_sono_desktop_app.command
+```
+
+That creates `~/Desktop/SONO PLAY LITE.app`.
+
 ## Contract
 
 URL imports use `yt-dlp` with cache disabled and download into a temporary system folder first. Only the final `.mp4` and `.source.json` are moved into the chosen destination.
