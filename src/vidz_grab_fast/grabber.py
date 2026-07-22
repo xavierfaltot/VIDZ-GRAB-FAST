@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -12,7 +13,7 @@ from .probe import verify_media
 from .provenance import SourceRecord, utc_download_date, write_source_json
 
 ProgressCallback = Callable[[str, int], None]
-MAX_BATCH_ITEMS = 150
+MAX_BATCH_ITEMS = 600
 
 
 class GrabError(RuntimeError):
@@ -76,6 +77,25 @@ def _source_urls_from_info(info: dict, parent_url: str, max_items: int) -> list[
         if len(urls) >= max_items:
             break
     return urls or [parent_url]
+
+
+def existing_source_urls(output_dir: Path) -> set[str]:
+    root = output_dir.expanduser()
+    if not root.exists() or not root.is_dir():
+        return set()
+
+    urls: set[str] = set()
+    for source_json in root.glob("*.source.json"):
+        try:
+            data = json.loads(source_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        source_url = data.get("source_url")
+        if isinstance(source_url, str) and source_url.strip():
+            urls.add(source_url.strip())
+    return urls
 
 
 def expand_source_url(source_url: str, max_items: int = MAX_BATCH_ITEMS) -> list[str]:

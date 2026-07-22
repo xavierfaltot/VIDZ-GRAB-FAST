@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .grabber import MAX_BATCH_ITEMS, GrabError, GrabRequest, expand_source_url, grab
+from .grabber import MAX_BATCH_ITEMS, GrabError, GrabRequest, existing_source_urls, expand_source_url, grab
 
 ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 LOGO_PATH = ASSETS_DIR / "vidz_grab_fast_logo.png"
@@ -32,7 +32,7 @@ class IndustrialPanel(QFrame):
 
 class GrabWorker(QObject):
     progress = Signal(str, int)
-    finished = Signal(int, int)
+    finished = Signal(int, int, int)
     failed = Signal(str)
 
     def __init__(self, output_dir: Path, artist_account: str, urls: list[str]) -> None:
@@ -45,6 +45,8 @@ class GrabWorker(QObject):
         self.progress.emit("LIST", 1)
         urls: list[str] = []
         seen: set[str] = set()
+        grabbed = existing_source_urls(self.output_dir)
+        skipped_count = 0
         for url in self.input_urls:
             remaining = MAX_BATCH_ITEMS - len(urls)
             if remaining <= 0:
@@ -57,12 +59,18 @@ class GrabWorker(QObject):
                 if expanded_url in seen:
                     continue
                 seen.add(expanded_url)
+                if expanded_url in grabbed:
+                    skipped_count += 1
+                    continue
                 urls.append(expanded_url)
                 if len(urls) >= MAX_BATCH_ITEMS:
                     break
 
         if not urls:
-            self.failed.emit("No URL provided")
+            if skipped_count:
+                self.finished.emit(0, 0, skipped_count)
+            else:
+                self.failed.emit("No URL provided")
             return
 
         errors: list[str] = []
@@ -85,7 +93,7 @@ class GrabWorker(QObject):
                 errors.append(f"{index}: {exc}")
                 self.progress.emit(f"SKIP {index}/{total}", int((index / total) * 100))
 
-        self.finished.emit(total - len(errors), len(errors))
+        self.finished.emit(total - len(errors), len(errors), skipped_count)
 
 
 class MainWindow(QMainWindow):
@@ -361,7 +369,7 @@ class MainWindow(QMainWindow):
             self._set_status("NO SOURCE")
             return
         if len(urls) > MAX_BATCH_ITEMS:
-            self._set_status("150 MAX")
+            self._set_status(f"{MAX_BATCH_ITEMS} MAX")
             self.footer.setText(f"{len(urls)} URLS")
             return
 
@@ -390,14 +398,17 @@ class MainWindow(QMainWindow):
     def _on_progress(self, message: str, percent: int) -> None:
         self._set_status(f"{message} {percent}%")
 
-    def _on_finished(self, success_count: int, error_count: int) -> None:
+    def _on_finished(self, success_count: int, error_count: int, skipped_count: int) -> None:
         self.grab_button.setEnabled(True)
         if error_count:
             self._set_status("DONE ERR")
-            self.footer.setText(f"{success_count} OK / {error_count} ERR")
+            summary = f"{success_count} OK / {error_count} ERR"
         else:
             self._set_status("DONE")
-            self.footer.setText(f"{success_count} OK")
+            summary = f"{success_count} OK"
+        if skipped_count:
+            summary = f"{summary} / {skipped_count} SKIP"
+        self.footer.setText(summary)
 
     def _on_failed(self, message: str) -> None:
         self.grab_button.setEnabled(True)

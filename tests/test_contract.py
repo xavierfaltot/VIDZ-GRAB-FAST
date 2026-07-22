@@ -6,7 +6,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 
 from vidz_grab_fast.filenames import clean_filename_stem
-from vidz_grab_fast.grabber import _source_urls_from_info
+from vidz_grab_fast.grabber import MAX_BATCH_ITEMS, _source_urls_from_info, existing_source_urls
 from vidz_grab_fast.platforms import detect_platform
 from vidz_grab_fast.provenance import SourceRecord, write_source_json
 from vidz_grab_fast.audio import audio_source_json_path, write_audio_source_json
@@ -92,6 +92,31 @@ def test_playlist_expansion_respects_limit() -> None:
         "https://www.youtube.com/watch?v=one",
         "https://www.youtube.com/watch?v=two",
     ]
+
+
+def test_large_playlist_limit_supports_500_tracks() -> None:
+    entries = [{"id": f"video-{index:03d}"} for index in range(500)]
+    info = {"entries": entries}
+
+    urls = _source_urls_from_info(info, "https://www.youtube.com/playlist?list=PL123", MAX_BATCH_ITEMS)
+
+    assert len(urls) == 500
+    assert urls[0] == "https://www.youtube.com/watch?v=video-000"
+    assert urls[-1] == "https://www.youtube.com/watch?v=video-499"
+
+
+def test_existing_source_urls_supports_resume_without_duplicates(tmp_path) -> None:
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"")
+    write_source_json(
+        video,
+        SourceRecord(
+            source_url="https://www.youtube.com/watch?v=abc123",
+            clean_filename=video.name,
+        ),
+    )
+
+    assert existing_source_urls(tmp_path) == {"https://www.youtube.com/watch?v=abc123"}
 
 
 def test_audio_source_json_preserves_grab_source(tmp_path) -> None:
