@@ -22,8 +22,9 @@ from PySide6.QtWidgets import (
 from .audio import AudioError, convert_folder
 from .ui import ASSETS_DIR, IndustrialPanel
 
-AUDIO_LOGO_PATH = ASSETS_DIR / "vidz_turn_sndz_logo.png"
-AUDIO_ICON_PATH = ASSETS_DIR / "vidz_turn_sndz_icon.png"
+AUDIO_LOGO_PATH = ASSETS_DIR / "vidz_turn_sono_logo.png"
+AUDIO_ICON_PATH = ASSETS_DIR / "vidz_turn_sono_icon.png"
+AUDIO_LOGO_BOTTOM_SPACING = 72
 
 
 class AudioWorker(QObject):
@@ -50,7 +51,7 @@ class AudioWindow(QMainWindow):
         super().__init__()
         self.thread: QThread | None = None
         self.worker: AudioWorker | None = None
-        self.setWindowTitle("VIDZ TURN SNDZ")
+        self.setWindowTitle("VIDZ TURN SONO")
         if AUDIO_ICON_PATH.exists():
             self.setWindowIcon(QIcon(str(AUDIO_ICON_PATH)))
         self.setMinimumSize(720, 620)
@@ -88,7 +89,7 @@ class AudioWindow(QMainWindow):
         header.addWidget(self.status)
         layout.addLayout(header)
 
-        self.logo = QLabel("VIDZ\nTURN\nSNDZ")
+        self.logo = QLabel("VIDZ\nTURN\nSONO")
         self.logo.setObjectName("logo")
         self.logo.setAlignment(Qt.AlignCenter)
         self.logo.setFixedSize(260, 205)
@@ -96,7 +97,7 @@ class AudioWindow(QMainWindow):
             pixmap = QPixmap(str(AUDIO_LOGO_PATH))
             self.logo.setPixmap(pixmap.scaled(260, 205, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         layout.addWidget(self.logo, alignment=Qt.AlignCenter)
-        layout.addSpacing(12)
+        layout.addSpacing(AUDIO_LOGO_BOTTOM_SPACING)
 
         self.input_line = self._line()
         self.output_line = self._line()
@@ -259,7 +260,7 @@ class AudioWindow(QMainWindow):
 
 def main() -> int:
     app = QApplication(sys.argv)
-    app.setApplicationName("VIDZ TURN SNDZ")
+    app.setApplicationName("VIDZ TURN SONO")
     app.setOrganizationName("RUSH OPERATOR")
     window = AudioWindow()
     window.show()

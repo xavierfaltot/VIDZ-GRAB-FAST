@@ -109,7 +109,7 @@ def convert_mp4_to_mp3(
     if not source.exists() or not source.is_file():
         raise AudioError("MP4 not found")
     if source.suffix.lower() != ".mp4":
-        raise AudioError("VIDZ TURN SNDZ accepts .mp4 files only")
+        raise AudioError("VIDZ TURN SONO accepts .mp4 files only")
 
     ffmpeg = require_tool("ffmpeg")
     target_dir = (output_dir or source.parent).expanduser().resolve()

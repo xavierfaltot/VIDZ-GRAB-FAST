@@ -47,10 +47,10 @@ Direct MP3 download is technically simpler if the only goal is audio. For the VI
 
 ```text
 VIDZ GRAB FAST -> acquire MP4 master + provenance
-VIDZ TURN SNDZ -> derive MP3 from that MP4
+VIDZ TURN SONO -> derive MP3 from that MP4
 ```
 
-This keeps GRAB impossible to confuse with SCAN, FLTR, PLAY, or any editing tool. GRAB still only acquires video and preserves origin. VIDZ TURN SNDZ is a separate utility that converts a folder of `.mp4` files into:
+This keeps GRAB impossible to confuse with SCAN, FLTR, PLAY, or any editing tool. GRAB still only acquires video and preserves origin. VIDZ TURN SONO is a separate utility that converts a folder of `.mp4` files into:
 
 ```text
 clean_name.mp3
@@ -65,7 +65,7 @@ Run the audio companion with:
 python run_audio.py
 ```
 
-Or double-click `VIDZ TURN SNDZ.command`.
+Or double-click `VIDZ TURN SONO.command`.
 
 To create or refresh the macOS desktop app:
 
@@ -73,7 +73,7 @@ To create or refresh the macOS desktop app:
 ./scripts/create_audio_desktop_app.command
 ```
 
-That creates `~/Desktop/VIDZ TURN SNDZ.app`.
+That creates `~/Desktop/VIDZ TURN SONO.app`.
 
 ## SNDZ PLAY MINI
 
@@ -102,6 +102,38 @@ To create or refresh the macOS desktop app:
 ```
 
 That creates `~/Desktop/SNDZ PLAY MINI.app`.
+
+## SONO SCAN FAST
+
+SONO SCAN FAST scans a local audio folder, estimates the BPM of each supported sound file, previews the final filename, then renames the files by adding mix-ready tags at the beginning so Finder can sort and filter the folder:
+
+```text
+128 BPM - 03m42s - E07 - INTROOK - OUTROOK - beat - instrumental - track_name.mp3
+```
+
+Values are written with three BPM digits, for example `090 BPM`, so alphabetic sorting keeps low BPM tracks before high BPM tracks. `E01` to `E10` is an automatic energy estimate. `INTROOK` and `OUTROOK` mark tracks with a usable intro or outro for transitions. Type and vocal tags are written in English for the future mix software. SONO SCAN FAST also writes a sidecar JSON next to renamed files:
+
+```text
+128 BPM - 03m42s - E07 - INTROOK - beat - instrumental - track_name.sono.json
+```
+
+If a file already has SONO tags, the old markers are replaced instead of stacked. Existing files are never overwritten; collisions receive a numbered suffix.
+
+Run it with:
+
+```bash
+python run_sono_scan.py
+```
+
+Or double-click `SONO SCAN FAST.command`.
+
+To create or refresh the macOS desktop app:
+
+```bash
+./scripts/create_sono_scan_desktop_app.command
+```
+
+That creates `~/Desktop/SONO SCAN FAST.app`.
 
 ## Contract
 

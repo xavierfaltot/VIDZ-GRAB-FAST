@@ -1,12 +1,32 @@
 #!/bin/zsh
 set -e
 
-APP_NAME="VIDZ TURN SNDZ"
+APP_NAME="VIDZ TURN SONO"
 REPO_DIR="${0:A:h:h}"
 APP_DIR="$HOME/Desktop/$APP_NAME.app"
 
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
-cp "$REPO_DIR/src/vidz_grab_fast/assets/vidz_turn_sndz_icon.png" "$APP_DIR/Contents/Resources/VIDZ_TURN_SNDZ.png"
+ICON_SOURCE="$REPO_DIR/src/vidz_grab_fast/assets/vidz_turn_sono_icon.png"
+ICON_FILE="VIDZ_TURN_SONO.png"
+
+if command -v sips >/dev/null 2>&1 && command -v iconutil >/dev/null 2>&1; then
+  ICONSET="$APP_DIR/Contents/Resources/VIDZ_TURN_SONO.iconset"
+  mkdir -p "$ICONSET"
+  sips -z 16 16 "$ICON_SOURCE" --out "$ICONSET/icon_16x16.png" >/dev/null
+  sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET/icon_32x32.png" >/dev/null
+  sips -z 64 64 "$ICON_SOURCE" --out "$ICONSET/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "$ICON_SOURCE" --out "$ICONSET/icon_128x128.png" >/dev/null
+  sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET/icon_256x256.png" >/dev/null
+  sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET/icon_512x512.png" >/dev/null
+  sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET/icon_512x512@2x.png" >/dev/null
+  iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/VIDZ_TURN_SONO.icns"
+  ICON_FILE="VIDZ_TURN_SONO.icns"
+else
+  cp "$ICON_SOURCE" "$APP_DIR/Contents/Resources/$ICON_FILE"
+fi
 
 cat > "$APP_DIR/Contents/MacOS/$APP_NAME" <<SCRIPT
 #!/bin/zsh
@@ -33,9 +53,9 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>
-  <string>VIDZ_TURN_SNDZ.png</string>
+  <string>$ICON_FILE</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rushoperator.vidzturnsndz</string>
+  <string>com.rushoperator.vidzturnsono</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
